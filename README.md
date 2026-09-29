@@ -46,7 +46,7 @@ Mouse drawing always works. Mode locks after 3 stable frames.
 - Drop balls with Rapier collisions; gravity / bounce / friction sliders
 - Optional webcam HandLandmarker (GPU, falls back to CPU)
 - Save / import versioned JSON scenes (no video)
-- Example: Ramp & Ball · Keyboard: `Space` `Z` `R` `D` `?`
+- Example: Ramp & Ball · Keyboard: `Space` `Z` `R` `D` `F` `?` · rename scene inline · Stairs Drop example
 
 ## Architecture
 

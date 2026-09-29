@@ -1,9 +1,9 @@
 {
   "name": "airforge",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
-  "description": "Browser physics playground — draw shapes in air or with mouse, forge them into Rapier rigid bodies.",
+  "description": "Browser physics playground \u2014 draw shapes in air or with mouse, forge them into Rapier rigid bodies.",
   "author": "skysssup",
   "license": "MIT",
   "scripts": {
