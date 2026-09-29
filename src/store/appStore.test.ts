@@ -93,3 +93,23 @@ describe('object limit flag', () => {
     expect(appStore.getState().objectLimitHit).toBe(false)
   })
 })
+
+describe('dropBall history', () => {
+  beforeEach(() => {
+    appStore._resetForTests()
+  })
+
+  it('does not push history when spawn is blocked at the object limit', () => {
+    for (let i = 0; i < MAX_OBJECTS; i++) {
+      appStore.addBall()
+    }
+    // Make every ball dynamic so dropBall cannot flip a static one
+    appStore.dropAllBalls()
+    const historyLen = appStore.getState().history.length
+
+    appStore.dropBall()
+    expect(appStore.getState().history.length).toBe(historyLen)
+    expect(appStore.getState().objects).toHaveLength(MAX_OBJECTS)
+    expect(appStore.getState().objectLimitHit).toBe(true)
+  })
+})
