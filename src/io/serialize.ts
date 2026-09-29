@@ -98,3 +98,27 @@ export function importSceneJson(raw: string): {
     physics: result.scene.physics,
   }
 }
+
+
+export interface SceneStats {
+  total: number
+  ramps: number
+  balls: number
+  platforms: number
+  dynamicBalls: number
+}
+
+export function sceneStats(objects: SceneObject[]): SceneStats {
+  let ramps = 0
+  let balls = 0
+  let platforms = 0
+  let dynamicBalls = 0
+  for (const o of objects) {
+    if (o.kind === 'ramp') ramps += 1
+    else if (o.kind === 'ball') {
+      balls += 1
+      if (o.dynamic) dynamicBalls += 1
+    } else if (o.kind === 'platform') platforms += 1
+  }
+  return { total: objects.length, ramps, balls, platforms, dynamicBalls }
+}

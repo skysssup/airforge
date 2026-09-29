@@ -181,3 +181,17 @@ describe('export/import', () => {
     expect(c.y).toBe(WORLD_HALF_HEIGHT)
   })
 })
+
+import { sceneStats } from './serialize'
+import { stairsDrop } from '../fixtures/scenes'
+
+describe('sceneStats', () => {
+  it('counts kinds for stairs example', () => {
+    const s = sceneStats(stairsDrop.objects)
+    expect(s.platforms).toBe(4)
+    expect(s.balls).toBe(1)
+    expect(s.ramps).toBe(0)
+    expect(s.total).toBe(5)
+    expect(s.dynamicBalls).toBe(0)
+  })
+})

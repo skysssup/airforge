@@ -113,3 +113,24 @@ describe('dropBall history', () => {
     expect(appStore.getState().objectLimitHit).toBe(true)
   })
 })
+
+describe('rename + freeze', () => {
+  beforeEach(() => {
+    appStore._resetForTests()
+  })
+
+  it('setSceneName trims and updates status', () => {
+    appStore.setSceneName('  Cascade Demo  ')
+    expect(appStore.getState().sceneName).toBe('Cascade Demo')
+  })
+
+  it('freezeBalls turns dynamic balls static and is undoable', () => {
+    appStore.loadRampAndBall()
+    appStore.dropBall()
+    expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
+    appStore.freezeBalls()
+    expect(appStore.getState().objects.filter((o) => o.kind === 'ball').every((b) => !b.dynamic)).toBe(true)
+    appStore.undo()
+    expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
+  })
+})

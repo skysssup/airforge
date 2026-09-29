@@ -543,6 +543,28 @@ export const appStore = {
     setState({ statusMessage: msg })
   },
 
+  setSceneName(name: string): void {
+    const trimmed = name.trim().slice(0, 80) || 'Untitled'
+    setState({ sceneName: trimmed, statusMessage: `Scene renamed to "${trimmed}".` })
+  },
+
+  /** Soft-reset dynamics: freeze every ball without clearing the scene. */
+  freezeBalls(): void {
+    const balls = state.objects.filter((o) => o.kind === 'ball' && o.dynamic)
+    if (balls.length === 0) {
+      setState({ statusMessage: 'No moving balls to freeze.' })
+      return
+    }
+    pushHistory()
+    const objects = state.objects.map((o) =>
+      o.kind === 'ball' && o.dynamic ? { ...o, dynamic: false } : o,
+    )
+    setState({
+      objects,
+      statusMessage: `Froze ${balls.length} ball${balls.length === 1 ? '' : 's'}.`,
+    })
+  },
+
   setReplayMode(on: boolean): void {
     setState({ replayMode: on })
   },
