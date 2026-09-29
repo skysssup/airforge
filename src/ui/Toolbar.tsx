@@ -3,7 +3,8 @@ import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import { EXAMPLE_SCENES } from '../fixtures/scenes'
 import { exportSceneJson, importSceneJson } from '../io/serialize'
-import { MAX_OBJECTS } from '../physics/params'
+import { FRICTION_MAX, FRICTION_MIN, MAX_OBJECTS } from '../physics/params'
+import { MAX_JSON_BYTES } from '../io/schema'
 
 interface Props {
   onToggleWebcam: () => void
@@ -86,8 +87,8 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
           Friction
           <input
             type="range"
-            min={0}
-            max={2}
+            min={FRICTION_MIN}
+            max={FRICTION_MAX}
             step={0.01}
             value={physics.friction}
             onChange={(e) => appStore.setPhysics({ friction: Number(e.target.value) })}
@@ -149,7 +150,7 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
             const file = e.target.files?.[0]
             e.target.value = ''
             if (!file) return
-            if (file.size > 512_000) {
+            if (file.size > MAX_JSON_BYTES) {
               appStore.setStatus('Import rejected: file too large.')
               return
             }

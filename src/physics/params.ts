@@ -10,10 +10,17 @@ export interface PhysicsParams {
   gravity: number
   /** Restitution (bounce) 0–1 */
   bounce: number
-  /** Coulomb friction 0–2 */
+  /** Coulomb friction 0–FRICTION_MAX */
   friction: number
   paused: boolean
 }
+
+export const FRICTION_MIN = 0
+export const FRICTION_MAX = 2
+export const GRAVITY_MIN = 0
+export const GRAVITY_MAX = 50
+export const BOUNCE_MIN = 0
+export const BOUNCE_MAX = 1
 
 export const DEFAULT_PHYSICS: PhysicsParams = {
   gravity: 9.81,
@@ -27,6 +34,17 @@ export const MESH_THICKNESS = 0.35
 
 /** Ball radius in world units. */
 export const BALL_RADIUS = 0.35
+
+/**
+ * Visible world half-extents at the draw plane (shared with coords + importer).
+ * Must stay in sync with DEFAULT_VIEW in coords/transforms.ts.
+ */
+export const WORLD_HALF_WIDTH = 8
+export const WORLD_HALF_HEIGHT = 4.5
+
+/** Reject imported sizes outside this band. */
+export const MIN_OBJECT_SIZE = 0.01
+export const MAX_OBJECT_SIZE = 20
 
 /**
  * Vertical spawn offset above a surface / default drop height.
