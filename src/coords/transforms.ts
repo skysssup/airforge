@@ -10,6 +10,7 @@
  */
 
 import type { Vec2, Vec3 } from '../events/types'
+import { WORLD_HALF_HEIGHT, WORLD_HALF_WIDTH } from '../physics/params'
 
 export interface ViewBounds {
   /** CSS pixel width of the drawing surface */
@@ -25,8 +26,8 @@ export interface ViewBounds {
 export const DEFAULT_VIEW: ViewBounds = {
   width: 1280,
   height: 720,
-  worldHalfWidth: 8,
-  worldHalfHeight: 4.5,
+  worldHalfWidth: WORLD_HALF_WIDTH,
+  worldHalfHeight: WORLD_HALF_HEIGHT,
 }
 
 /** Map screen pixel (optionally mirrored) → world x/y on the draw plane (z=0). */

@@ -5,7 +5,21 @@
 
 import type { ObjectKind } from '../events/types'
 import type { PhysicsParams } from '../physics/params'
-import { DEFAULT_PHYSICS, MAX_OBJECTS } from '../physics/params'
+import {
+  BOUNCE_MAX,
+  BOUNCE_MIN,
+  DEFAULT_PHYSICS,
+  FRICTION_MAX,
+  FRICTION_MIN,
+  GRAVITY_MAX,
+  GRAVITY_MIN,
+  GROUND_Y,
+  MAX_OBJECT_SIZE,
+  MAX_OBJECTS,
+  MIN_OBJECT_SIZE,
+  WORLD_HALF_HEIGHT,
+  WORLD_HALF_WIDTH,
+} from '../physics/params'
 
 export const SCENE_FORMAT_VERSION = 1 as const
 export const MAX_JSON_BYTES = 512_000 // 512 KB
@@ -53,6 +67,19 @@ function isNum(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v)
 }
 
+function isPositiveSize(v: number): boolean {
+  return v >= MIN_OBJECT_SIZE && v <= MAX_OBJECT_SIZE
+}
+
+/** Clamp a world-space point into the visible volume / above the ground. */
+export function clampWorldVec(v: SerializedVec3): SerializedVec3 {
+  return {
+    x: Math.max(-WORLD_HALF_WIDTH, Math.min(WORLD_HALF_WIDTH, v.x)),
+    y: Math.max(GROUND_Y, Math.min(WORLD_HALF_HEIGHT, v.y)),
+    z: Math.max(-1, Math.min(1, v.z)),
+  }
+}
+
 function isVec3(v: unknown): v is SerializedVec3 {
   return (
     typeof v === 'object' &&
@@ -63,8 +90,12 @@ function isVec3(v: unknown): v is SerializedVec3 {
   )
 }
 
+function utf8ByteLength(raw: string): number {
+  return new TextEncoder().encode(raw).length
+}
+
 export function validateSceneJson(raw: string): ValidationResult {
-  if (raw.length > MAX_JSON_BYTES) {
+  if (utf8ByteLength(raw) > MAX_JSON_BYTES) {
     return { ok: false, error: `File too large (>${MAX_JSON_BYTES} bytes).` }
   }
 
@@ -141,13 +172,13 @@ function parsePhysics(
     return { ok: false, error: 'Invalid physics block.' }
   }
   const p = v as Record<string, unknown>
-  if (!isNum(p.gravity) || p.gravity < 0 || p.gravity > 50) {
+  if (!isNum(p.gravity) || p.gravity < GRAVITY_MIN || p.gravity > GRAVITY_MAX) {
     return { ok: false, error: 'physics.gravity out of range.' }
   }
-  if (!isNum(p.bounce) || p.bounce < 0 || p.bounce > 1) {
+  if (!isNum(p.bounce) || p.bounce < BOUNCE_MIN || p.bounce > BOUNCE_MAX) {
     return { ok: false, error: 'physics.bounce out of range.' }
   }
-  if (!isNum(p.friction) || p.friction < 0 || p.friction > 5) {
+  if (!isNum(p.friction) || p.friction < FRICTION_MIN || p.friction > FRICTION_MAX) {
     return { ok: false, error: 'physics.friction out of range.' }
   }
   return {
@@ -188,21 +219,38 @@ function parseObject(
     if (!isVec3(o.start) || !isVec3(o.end)) {
       return { ok: false, error: 'Ramp missing start/end.' }
     }
-    base.start = o.start
-    base.end = o.end
-    base.width = isNum(o.width) ? o.width : 0.28
-    base.thickness = isNum(o.thickness) ? o.thickness : 0.35
+    base.start = clampWorldVec(o.start)
+    base.end = clampWorldVec(o.end)
+    const width = isNum(o.width) ? o.width : 0.28
+    const thickness = isNum(o.thickness) ? o.thickness : 0.35
+    if (!isPositiveSize(width) || !isPositiveSize(thickness)) {
+      return { ok: false, error: 'Ramp width/thickness must be positive and within limits.' }
+    }
+    base.width = width
+    base.thickness = thickness
   } else if (o.kind === 'ball') {
     if (!isVec3(o.position)) return { ok: false, error: 'Ball missing position.' }
-    base.position = o.position
-    base.radius = isNum(o.radius) ? o.radius : 0.35
+    base.position = clampWorldVec(o.position)
+    const radius = isNum(o.radius) ? o.radius : 0.35
+    if (!isPositiveSize(radius)) {
+      return { ok: false, error: 'Ball radius must be positive and within limits.' }
+    }
+    base.radius = radius
     base.dynamic = typeof o.dynamic === 'boolean' ? o.dynamic : false
   } else {
     if (!isVec3(o.center) || !isVec3(o.halfExtents)) {
       return { ok: false, error: 'Platform missing center/halfExtents.' }
     }
-    base.center = o.center
-    base.halfExtents = o.halfExtents
+    base.center = clampWorldVec(o.center)
+    const he = o.halfExtents
+    if (!isPositiveSize(he.x) || !isPositiveSize(he.y) || !isPositiveSize(he.z)) {
+      return { ok: false, error: 'Platform halfExtents must be positive and within limits.' }
+    }
+    base.halfExtents = {
+      x: Math.min(he.x, MAX_OBJECT_SIZE),
+      y: Math.min(he.y, MAX_OBJECT_SIZE),
+      z: Math.min(he.z, MAX_OBJECT_SIZE),
+    }
     base.rotationZ = isNum(o.rotationZ) ? o.rotationZ : 0
   }
 
