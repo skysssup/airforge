@@ -10,7 +10,6 @@ import {
 } from '../hand/gestures'
 import { landmarkToScreen } from '../coords/transforms'
 import { appStore } from '../store/appStore'
-import { useAppState } from './hooks'
 import {
   addRawPoint,
   cancelStroke,
@@ -29,7 +28,6 @@ export function WebcamPanel({ active, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
-  const { view } = useAppState()
   const strokeRef = useRef<StrokeState | null>(null)
   const machineRef = useRef(createGestureMachine())
   const trackerRef = useRef<HandTracker | null>(null)
@@ -142,7 +140,10 @@ export function WebcamPanel({ active, onClose }: Props) {
               appStore.beginStroke('webcam', screen)
             } else if (strokeRef.current) {
               const smoothed = addRawPoint(strokeRef.current, screen)
-              if (smoothed) {
+              if (strokeRef.current.gapExceeded) {
+                // Tracking jump — cancel rather than connect distant points
+                finishActiveStroke(true, 'hand_lost')
+              } else if (smoothed) {
                 appStore.setLiveStroke(strokeRef.current.points.slice(), 'webcam')
               }
             }
@@ -161,6 +162,7 @@ export function WebcamPanel({ active, onClose }: Props) {
 
     void start()
 
+    const machine = machineRef.current
     return () => {
       cancelled = true
       cancelAnimationFrame(rafRef.current)
@@ -174,9 +176,10 @@ export function WebcamPanel({ active, onClose }: Props) {
         drawingRef.current = false
         appStore.cancelStroke('webcam', 'user')
       }
-      resetGestureMachine(machineRef.current)
+      resetGestureMachine(machine)
     }
-  }, [active, view.width, view.height])
+    // view is read live via appStore.getState() in the loop — do not restart on resize
+  }, [active])
 
   if (!active) return null
 

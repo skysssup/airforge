@@ -59,7 +59,7 @@ There is no Python OpenCV server.
 | `react` / `react-dom` | UI | MIT |
 | `three` | WebGL renderer | MIT |
 | `@react-three/fiber` | React renderer for three | MIT |
-| `@react-three/drei` | Helpers (Grid, OrbitControls) | MIT |
+| `@react-three/drei` | Helpers (Grid) | MIT |
 | `@react-three/rapier` | Physics bindings to Rapier | MIT |
 | `vite` / `vitest` / `typescript` | Build & test | MIT |
 

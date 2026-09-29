@@ -92,6 +92,10 @@ export class MouseStrokeAdapter {
     if (!this.drawing || !this.stroke) return
     const point = this.pointFromEvent(e)
     const smoothed = addRawPoint(this.stroke, point)
+    if (this.stroke.gapExceeded) {
+      this.onCancel()
+      return
+    }
     if (!smoothed) return
     this.listener?.({
       type: 'POINT_ADDED',

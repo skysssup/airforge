@@ -54,7 +54,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Prefer reduced motion: disable orbit damping feel via CSS class
+  // Prefer reduced motion: tighten CSS transitions via class on <html>
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     const apply = () => document.documentElement.classList.toggle('reduced-motion', mq.matches)

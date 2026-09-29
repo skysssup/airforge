@@ -50,7 +50,7 @@ AirForge is **inspired by** [WritingOnAir](https://github.com/CodeItAlone/Writin
 | **Vite + React 19 + TypeScript** | Fast SPA tooling, strict types |
 | **three** | WebGL scene graph |
 | **@react-three/fiber ^9** | Declarative three.js in React 19 |
-| **@react-three/drei** | Grid, OrbitControls, ergonomics |
+| **@react-three/drei** | Grid helper, scene ergonomics |
 | **@react-three/rapier ^2** | Rigid-body physics (ramps, balls, bounce/friction) |
 | **@mediapipe/tasks-vision@1.0.1** | Optional webcam HandLandmarker (CDN wasm/model pinned) |
 | **vitest** | Unit tests for recognition, coords, IO, gestures, hero path |
@@ -116,7 +116,7 @@ Pinned MediaPipe assets (when using webcam):
 - **Webcam was not tested on the machine that built this repo** (`/dev/video*` absent). Do not treat gesture accuracy as measured.
 - Shape recognition thresholds are tuned for ~1280×720 stroke pixels; very small canvases may need looser thresholds.
 - Rapier playback is **snapshot-based** — physics is not bit-exact across devices; replay restores recorded object states.
-- OrbitControls + drawing overlay share the stage; drag on the overlay to draw (not orbit). Orbit with right/middle mouse or trackpad gestures away from a stroke if needed.
+- Camera is **fixed** (slight perspective) so screen↔world mapping stays predictable for drawing. The overlay captures pointer input for strokes; there is no free orbit.
 - Stretch goals skipped for reliability: two-hand manipulate, shareable URL state.
 
 ## Roadmap

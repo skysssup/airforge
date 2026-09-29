@@ -10,6 +10,8 @@ import { dist2 } from '../coords/transforms'
 export const SMOOTH_WINDOW = 4
 export const MAX_STROKE_POINTS = 2000
 export const MIN_POINT_SPACING = 1.5
+/** Reject / cancel when a new point teleports farther than this (px). */
+export const MAX_POINT_GAP = 160
 
 export interface StrokeState {
   id: string
@@ -17,16 +19,27 @@ export interface StrokeState {
   points: Vec2[]
   rawBuffer: Vec2[]
   active: boolean
+  /** Set when a raw point jumped farther than MAX_POINT_GAP — callers must cancel. */
+  gapExceeded: boolean
 }
 
 export function createStroke(id: string, source: 'mouse' | 'webcam'): StrokeState {
-  return { id, source, points: [], rawBuffer: [], active: true }
+  return { id, source, points: [], rawBuffer: [], active: true, gapExceeded: false }
 }
 
 /** Push a raw point; returns the smoothed point if accepted, else null. */
 export function addRawPoint(stroke: StrokeState, raw: Vec2): Vec2 | null {
   if (!stroke.active) return null
   if (stroke.points.length >= MAX_STROKE_POINTS) return null
+
+  // Gap against the *raw* tip so smoothing cannot dilute a teleport jump
+  if (stroke.points.length > 0) {
+    const last = stroke.points[stroke.points.length - 1]!
+    if (dist2(last, raw) > MAX_POINT_GAP) {
+      stroke.gapExceeded = true
+      return null
+    }
+  }
 
   stroke.rawBuffer.push(raw)
   if (stroke.rawBuffer.length > SMOOTH_WINDOW) {
@@ -54,6 +67,7 @@ export function cancelStroke(stroke: StrokeState): void {
   stroke.active = false
   stroke.points = []
   stroke.rawBuffer = []
+  stroke.gapExceeded = false
 }
 
 function averagePoints(pts: Vec2[]): Vec2 {

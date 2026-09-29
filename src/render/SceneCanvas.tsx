@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { Grid, OrbitControls } from '@react-three/drei'
+import { Grid } from '@react-three/drei'
 import { Suspense, useEffect, useRef } from 'react'
 import { PhysicsWorld } from './PhysicsWorld'
 import { InkOverlay } from './InkOverlay'
@@ -65,14 +65,6 @@ export function SceneCanvas() {
           infiniteGrid
         />
 
-        <OrbitControls
-          enablePan={false}
-          minPolarAngle={Math.PI / 4}
-          maxPolarAngle={Math.PI / 2.05}
-          minDistance={8}
-          maxDistance={22}
-          target={[0, 0, 0]}
-        />
       </Canvas>
     </div>
   )
