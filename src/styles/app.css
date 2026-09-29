@@ -466,3 +466,21 @@ kbd {
   animation-duration: 0.01ms !important;
   transition-duration: 0.01ms !important;
 }
+
+.scene-name-input {
+  display: block;
+  width: min(180px, 28vw);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+  margin-top: 2px;
+}
+.scene-name-input:hover,
+.scene-name-input:focus {
+  border-color: rgba(148, 163, 184, 0.45);
+  outline: none;
+  background: rgba(15, 23, 42, 0.35);
+}

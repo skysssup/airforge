@@ -108,7 +108,56 @@ export const flatTable: ExampleScene = {
   ],
 }
 
-export const EXAMPLE_SCENES: ExampleScene[] = [rampAndBall, doubleRamp, flatTable]
+export const stairsDrop: ExampleScene = {
+  id: 'stairs-drop',
+  name: 'Stairs Drop',
+  description: 'Stepped platforms for cascading ball drops.',
+  physics: { ...DEFAULT_PHYSICS, bounce: 0.35, friction: 0.55 },
+  objects: [
+    {
+      id: 'step_1',
+      kind: 'platform',
+      createdAt: 0,
+      center: { x: -4, y: 2, z: 0 },
+      halfExtents: { x: 1.2, y: 0.12, z: 0.2 },
+      rotationZ: 0,
+    },
+    {
+      id: 'step_2',
+      kind: 'platform',
+      createdAt: 0,
+      center: { x: -1.2, y: 0.4, z: 0 },
+      halfExtents: { x: 1.2, y: 0.12, z: 0.2 },
+      rotationZ: 0,
+    },
+    {
+      id: 'step_3',
+      kind: 'platform',
+      createdAt: 0,
+      center: { x: 1.6, y: -1.2, z: 0 },
+      halfExtents: { x: 1.2, y: 0.12, z: 0.2 },
+      rotationZ: 0,
+    },
+    {
+      id: 'floor',
+      kind: 'platform',
+      createdAt: 0,
+      center: { x: 4, y: -3, z: 0 },
+      halfExtents: { x: 2.2, y: 0.12, z: 0.2 },
+      rotationZ: 0,
+    },
+    {
+      id: 'ball_stairs',
+      kind: 'ball',
+      createdAt: 0,
+      position: { x: -4, y: 3.2, z: 0 },
+      radius: 0.32,
+      dynamic: false,
+    },
+  ],
+}
+
+export const EXAMPLE_SCENES: ExampleScene[] = [rampAndBall, doubleRamp, flatTable, stairsDrop]
 
 export function exampleToJson(scene: ExampleScene): string {
   const serialized: SerializedObject[] = objectsToSerialized(scene.objects)

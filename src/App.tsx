@@ -42,6 +42,9 @@ export default function App() {
       } else if (e.key === 'd' || e.key === 'D') {
         e.preventDefault()
         appStore.dropBall()
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        appStore.freezeBalls()
       } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault()
         setHelpOpen((v) => !v)

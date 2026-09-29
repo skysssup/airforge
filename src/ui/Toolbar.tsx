@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import { EXAMPLE_SCENES } from '../fixtures/scenes'
-import { exportSceneJson, importSceneJson } from '../io/serialize'
+import { exportSceneJson, importSceneJson, sceneStats } from '../io/serialize'
 import { FRICTION_MAX, FRICTION_MIN, MAX_OBJECTS } from '../physics/params'
 import { MAX_JSON_BYTES } from '../io/schema'
 
@@ -14,6 +14,7 @@ interface Props {
 
 export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
   const { physics, objects, webcamEnabled, objectLimitHit, sceneName } = useAppState()
+  const stats = sceneStats(objects)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const ballCount = objects.filter((o) => o.kind === 'ball').length
@@ -27,7 +28,15 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
         </span>
         <div>
           <strong>AirForge</strong>
-          <span className="muted scene-name">{sceneName}</span>
+          <label className="sr-only" htmlFor="airforge-scene-name">Scene name</label>
+          <input
+            id="airforge-scene-name"
+            className="muted scene-name scene-name-input"
+            value={sceneName}
+            maxLength={80}
+            aria-label="Scene name"
+            onChange={(e) => appStore.setSceneName(e.target.value)}
+          />
         </div>
       </div>
 
@@ -43,10 +52,21 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
           className="btn accent"
           onClick={() => appStore.dropBall()}
           disabled={objects.length === 0 && ballCount === 0}
+          title="Drop ball (D)"
         >
           Drop ball{staticBalls > 0 ? ` (${staticBalls})` : ''}
         </button>
-        <button type="button" className="btn" onClick={() => appStore.undo()}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => appStore.freezeBalls()}
+          disabled={stats.dynamicBalls === 0}
+          aria-label="Freeze moving balls"
+          title="Freeze moving balls (F)"
+        >
+          Freeze
+        </button>
+        <button type="button" className="btn" onClick={() => appStore.undo()} title="Undo (Z)">
           Undo
         </button>
         <button type="button" className="btn danger" onClick={() => appStore.resetScene()}>
@@ -181,7 +201,7 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
       </div>
 
       <div className="toolbar-meta" aria-live="polite">
-        Objects {objects.length}/{MAX_OBJECTS}
+        {stats.total}/{MAX_OBJECTS} · {stats.ramps}r {stats.balls}b ({stats.dynamicBalls} moving) {stats.platforms}p
       </div>
     </header>
   )
