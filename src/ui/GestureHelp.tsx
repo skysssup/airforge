@@ -20,7 +20,7 @@ export function GestureHelp({ open, onClose }: Props) {
                 <strong>Pinch</strong> (thumb + index) — pen up
               </li>
               <li>
-                <strong>Open palm</strong> — cancel / erase intent
+                <strong>Open palm</strong> — cancel stroke
               </li>
               <li>Mode locks after 3 stable frames (hysteresis)</li>
               <li>Hand lost &gt; 2 frames → stroke cancelled (no teleport lines)</li>
