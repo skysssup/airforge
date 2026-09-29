@@ -23,7 +23,7 @@ export function Tutorial() {
             Tweak gravity / bounce / friction. Use <strong>Reset</strong> or <strong>Undo</strong>.
           </li>
           <li>
-            Optional: enable webcam — index finger draws, pinch = pen up. Mouse always works.
+            Optional: enable webcam — index draws, pinch = pen up, open palm = cancel stroke. Mouse always works.
           </li>
         </ol>
         <div className="modal-actions">
