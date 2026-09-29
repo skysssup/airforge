@@ -169,7 +169,7 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
           onClick={onToggleWebcam}
           aria-pressed={webcamEnabled}
         >
-          {webcamEnabled ? 'Webcam on' : 'Try without webcam'}
+          {webcamEnabled ? 'Use mouse' : 'Enable webcam'}
         </button>
         <button type="button" className="btn" onClick={onOpenReplay}>
           Replay
