@@ -104,7 +104,7 @@ export function cameraErrorHint(code: CameraErrorCode): string {
     case 'permission_denied':
       return 'Allow camera access in the browser address bar, or continue with mouse.'
     case 'not_found':
-      return 'Plug in a webcam or use “Try without webcam”.'
+      return 'Plug in a webcam or keep drawing with the mouse.'
     case 'in_use':
       return 'Close other apps using the camera, then retry.'
     case 'secure_context':

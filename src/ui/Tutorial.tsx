@@ -10,8 +10,8 @@ export function Tutorial() {
         </p>
         <ol>
           <li>
-            Click <strong>Try without webcam</strong> (already active) and draw a <strong>diagonal</strong> on the
-            canvas → forges a <em>ramp</em>.
+            Draw a <strong>diagonal</strong> on the canvas with the mouse → forges a <em>ramp</em>.
+            Webcam is optional — use <strong>Enable webcam</strong> later if you want.
           </li>
           <li>
             Draw a <strong>circle</strong> or press <strong>Add ball</strong>.
