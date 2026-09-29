@@ -351,32 +351,53 @@ export const appStore = {
   },
 
   dropBall(): void {
-    pushHistory()
-    let droppedId: string | null = null
-    const objects = state.objects.map((o) => {
-      if (o.kind === 'ball' && !o.dynamic && !droppedId) {
-        droppedId = o.id
-        return { ...o, dynamic: true } satisfies BallObject
-      }
-      return o
-    })
-    if (!droppedId) {
-      // Add & drop in one go
-      const ball = createBallAt({ x: -3, y: 3.5, z: 0 }, state.objects, true)
-      if (!ball) {
-        setState({ statusMessage: 'No ball to drop.' })
-        return
-      }
-      droppedId = ball.id
-      objects.push(ball)
+    const staticBall = state.objects.find((o) => o.kind === 'ball' && !o.dynamic)
+    if (staticBall) {
+      pushHistory()
+      const objects = state.objects.map((o): SceneObject => {
+        if (o.id === staticBall.id && o.kind === 'ball') {
+          return { ...o, dynamic: true }
+        }
+        return o
+      })
+      logEvent({
+        type: 'BALL_DROPPED',
+        id: makeEventId(),
+        t: nowMs(),
+        objectId: staticBall.id,
+      })
+      setState({ objects, statusMessage: 'Ball dropped — watch the physics.' })
+      snap('drop-ball')
+      return
     }
+
+    // No static ball — spawn one already dynamic (if under the object cap)
+    if (state.objects.length >= MAX_OBJECTS) {
+      setState({
+        objectLimitHit: true,
+        statusMessage: `Object limit (${MAX_OBJECTS}) reached — cannot spawn a ball to drop.`,
+      })
+      return
+    }
+
+    const ball = createBallAt({ x: -3, y: 3.5, z: 0 }, state.objects, true)
+    if (!ball) {
+      setState({ statusMessage: 'No ball to drop.' })
+      return
+    }
+
+    pushHistory()
     logEvent({
       type: 'BALL_DROPPED',
       id: makeEventId(),
       t: nowMs(),
-      objectId: droppedId,
+      objectId: ball.id,
     })
-    setState({ objects, statusMessage: 'Ball dropped — watch the physics.' })
+    setState({
+      objects: [...state.objects, ball],
+      objectLimitHit: false,
+      statusMessage: 'Ball dropped — watch the physics.',
+    })
     snap('drop-ball')
   },
 
