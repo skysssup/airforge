@@ -3,6 +3,7 @@ import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import { EXAMPLE_SCENES } from '../fixtures/scenes'
 import { exportSceneJson, importSceneJson } from '../io/serialize'
+import { MAX_OBJECTS } from '../physics/params'
 
 interface Props {
   onToggleWebcam: () => void
@@ -33,7 +34,7 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
         <button type="button" className="btn primary" onClick={() => appStore.loadRampAndBall()}>
           Load Ramp &amp; Ball
         </button>
-        <button type="button" className="btn" onClick={() => appStore.addBall()} disabled={objectLimitHit}>
+        <button type="button" className="btn" onClick={() => appStore.addBall()} disabled={objectLimitHit || objects.length >= MAX_OBJECTS}>
           Add ball
         </button>
         <button
@@ -179,7 +180,7 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
       </div>
 
       <div className="toolbar-meta" aria-live="polite">
-        Objects {objects.length}/40
+        Objects {objects.length}/{MAX_OBJECTS}
       </div>
     </header>
   )

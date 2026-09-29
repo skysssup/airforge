@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { appStore } from './appStore'
 import { cleanCircle, cleanDiagonalLine } from '../fixtures/strokes'
 import { rampAndBall } from '../fixtures/scenes'
+import { MAX_OBJECTS } from '../physics/params'
 
 describe('reset / undo', () => {
   beforeEach(() => {
@@ -67,5 +68,28 @@ describe('mouse hero-demo path (logic-level)', () => {
     expect(appStore.getState().sceneName).toBe('Ramp & Ball')
     appStore.dropBall()
     expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
+  })
+})
+
+describe('object limit flag', () => {
+  beforeEach(() => {
+    appStore._resetForTests()
+  })
+
+  it('clears objectLimitHit after undo brings scene under the cap', () => {
+    for (let i = 0; i < MAX_OBJECTS; i++) {
+      appStore.addBall()
+    }
+    expect(appStore.getState().objects).toHaveLength(MAX_OBJECTS)
+
+    // Next add attempt flips the sticky flag
+    appStore.addBall()
+    expect(appStore.getState().objectLimitHit).toBe(true)
+    expect(appStore.getState().objects).toHaveLength(MAX_OBJECTS)
+
+    // Undo the last successful add → under the cap; flag must clear
+    appStore.undo()
+    expect(appStore.getState().objects.length).toBe(MAX_OBJECTS - 1)
+    expect(appStore.getState().objectLimitHit).toBe(false)
   })
 })

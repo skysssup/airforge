@@ -415,6 +415,7 @@ export const appStore = {
       objects: prev,
       history,
       suggestion: null,
+      objectLimitHit: prev.length >= MAX_OBJECTS,
       statusMessage: 'Undo.',
     })
     snap('undo')
@@ -448,12 +449,14 @@ export const appStore = {
 
   loadExample(objects: SceneObject[], name: string, physics?: PhysicsParams): void {
     pushHistory()
+    const cloned = cloneObjects(objects)
     setState({
-      objects: cloneObjects(objects),
+      objects: cloned,
       physics: physics ? { ...physics } : state.physics,
       sceneName: name,
       suggestion: null,
       liveStroke: [],
+      objectLimitHit: cloned.length >= MAX_OBJECTS,
       statusMessage: `Loaded “${name}”. Press Drop ball.`,
     })
     logEvent({
@@ -471,11 +474,13 @@ export const appStore = {
 
   replaceObjects(objects: SceneObject[], name: string, physics: PhysicsParams): void {
     pushHistory()
+    const cloned = cloneObjects(objects)
     setState({
-      objects: cloneObjects(objects),
+      objects: cloned,
       physics: { ...physics },
       sceneName: name,
       suggestion: null,
+      objectLimitHit: cloned.length >= MAX_OBJECTS,
       statusMessage: `Imported “${name}”.`,
     })
     snap(`import:${name}`)
