@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+*.local
+
+# Logs / coverage
+logs/
+*.log
+npm-debug.log*
+coverage/
+.nyc_output/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# TypeScript
+*.tsbuildinfo
+node_modules/.tmp/
+
+# Test / vitest
+.vitest/
+
+# Webcam / media captures — never commit footage
+*.mp4
+*.webm
+*.mov
+captures/
+webcam/
+recordings/
+
+# Local agent / tooling
+.agent/

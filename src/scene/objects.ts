@@ -1,0 +1,204 @@
+/**
+ * Scene object model: ramp, ball, platform.
+ * Geometry is derived from recognized shapes / user actions in world space.
+ */
+
+import type { Vec2, Vec3, ObjectKind } from '../events/types'
+import type { CircleParams, LineParams, RectParams, ShapeCandidate } from '../shapes/recognize'
+import { shapeToObjectKind } from '../shapes/recognize'
+import { screenToWorld, type ViewBounds, DEFAULT_VIEW } from '../coords/transforms'
+import {
+  BALL_RADIUS,
+  MESH_THICKNESS,
+  ballSpawnY,
+  MAX_OBJECTS,
+} from '../physics/params'
+
+export interface SceneObjectBase {
+  id: string
+  kind: ObjectKind
+  createdAt: number
+}
+
+export interface RampObject extends SceneObjectBase {
+  kind: 'ramp'
+  /** World-space endpoints of the ramp centerline */
+  start: Vec3
+  end: Vec3
+  /** Half-thickness of the box collider along the surface normal (visual width) */
+  width: number
+  thickness: number
+}
+
+export interface BallObject extends SceneObjectBase {
+  kind: 'ball'
+  position: Vec3
+  radius: number
+  /** If false, ball is kinematic/static preview until Drop */
+  dynamic: boolean
+}
+
+export interface PlatformObject extends SceneObjectBase {
+  kind: 'platform'
+  /** World-space center */
+  center: Vec3
+  /** Half extents (x, y thickness, z) — y is thin for a flat platform */
+  halfExtents: Vec3
+  /** Rotation around Z in radians */
+  rotationZ: number
+}
+
+export type SceneObject = RampObject | BallObject | PlatformObject
+
+let _oid = 0
+export function makeObjectId(kind: ObjectKind): string {
+  _oid += 1
+  return `${kind}_${Date.now().toString(36)}_${_oid}`
+}
+
+export function resetObjectIdCounter(): void {
+  _oid = 0
+}
+
+/** Build a SceneObject from a recognition candidate + stroke in screen space. */
+export function objectFromRecognition(
+  candidate: ShapeCandidate,
+  view: ViewBounds = DEFAULT_VIEW,
+  mirrored = false,
+  existing: SceneObject[] = [],
+): SceneObject | null {
+  if (existing.length >= MAX_OBJECTS) return null
+
+  const kind = shapeToObjectKind(candidate.kind)
+  const id = makeObjectId(kind)
+  const createdAt = Date.now()
+
+  if (candidate.kind === 'line') {
+    const p = candidate.params as LineParams
+    const start = screenToWorld({ x: p.x1, y: p.y1 }, view, mirrored)
+    const end = screenToWorld({ x: p.x2, y: p.y2 }, view, mirrored)
+    return {
+      id,
+      kind: 'ramp',
+      createdAt,
+      start,
+      end,
+      width: 0.28,
+      thickness: MESH_THICKNESS,
+    }
+  }
+
+  if (candidate.kind === 'circle') {
+    const p = candidate.params as CircleParams
+    const center = screenToWorld({ x: p.cx, y: p.cy }, view, mirrored)
+    // Keep ball at recognized position but lift if overlapping surfaces
+    const surfaceTop = topSurfaceY(existing, center.x)
+    const y = Math.max(center.y, ballSpawnY(surfaceTop))
+    return {
+      id,
+      kind: 'ball',
+      createdAt,
+      position: { x: center.x, y, z: 0 },
+      radius: BALL_RADIUS,
+      dynamic: false,
+    }
+  }
+
+  // rectangle / square → platform
+  const p = candidate.params as RectParams
+  const worldCorners = p.corners.map((c) => screenToWorld(c, view, mirrored))
+  const cx = worldCorners.reduce((s, c) => s + c.x, 0) / worldCorners.length
+  const cy = worldCorners.reduce((s, c) => s + c.y, 0) / worldCorners.length
+  const xs = worldCorners.map((c) => c.x)
+  const ys = worldCorners.map((c) => c.y)
+  const halfW = (Math.max(...xs) - Math.min(...xs)) / 2
+  const halfH = (Math.max(...ys) - Math.min(...ys)) / 2
+  // Flat platform: thin in Y (height), wide in X
+  const flat = halfW >= halfH
+  return {
+    id,
+    kind: 'platform',
+    createdAt,
+    center: { x: cx, y: cy, z: 0 },
+    halfExtents: flat
+      ? { x: Math.max(halfW, 0.4), y: 0.12, z: MESH_THICKNESS / 2 }
+      : { x: Math.max(halfW, 0.3), y: Math.max(halfH, 0.3), z: MESH_THICKNESS / 2 },
+    rotationZ: 0,
+  }
+}
+
+/** Create a ball from the "Add ball" control. */
+export function createBallAt(
+  position: Vec3,
+  existing: SceneObject[] = [],
+  dynamic = false,
+): BallObject | null {
+  if (existing.length >= MAX_OBJECTS) return null
+  const surfaceTop = topSurfaceY(existing, position.x)
+  const y = Math.max(position.y, ballSpawnY(surfaceTop))
+  return {
+    id: makeObjectId('ball'),
+    kind: 'ball',
+    createdAt: Date.now(),
+    position: { x: position.x, y, z: 0 },
+    radius: BALL_RADIUS,
+    dynamic,
+  }
+}
+
+/** Approximate top Y of static surfaces under a given X (for spawn clearance). */
+export function topSurfaceY(objects: SceneObject[], x: number): number | null {
+  let top: number | null = null
+  for (const o of objects) {
+    if (o.kind === 'platform') {
+      const minX = o.center.x - o.halfExtents.x
+      const maxX = o.center.x + o.halfExtents.x
+      if (x >= minX - 0.2 && x <= maxX + 0.2) {
+        const y = o.center.y + o.halfExtents.y
+        top = top == null ? y : Math.max(top, y)
+      }
+    } else if (o.kind === 'ramp') {
+      const minX = Math.min(o.start.x, o.end.x)
+      const maxX = Math.max(o.start.x, o.end.x)
+      if (x >= minX - 0.3 && x <= maxX + 0.3) {
+        const t = (x - o.start.x) / (o.end.x - o.start.x || 1e-6)
+        const y = o.start.y + t * (o.end.y - o.start.y) + o.width
+        top = top == null ? y : Math.max(top, y)
+      }
+    }
+  }
+  return top
+}
+
+/** Ramp center, length, and Z-rotation for mesh placement. */
+export function rampPose(ramp: RampObject): {
+  center: Vec3
+  length: number
+  rotationZ: number
+} {
+  const dx = ramp.end.x - ramp.start.x
+  const dy = ramp.end.y - ramp.start.y
+  const length = Math.hypot(dx, dy)
+  return {
+    center: {
+      x: (ramp.start.x + ramp.end.x) / 2,
+      y: (ramp.start.y + ramp.end.y) / 2,
+      z: 0,
+    },
+    length,
+    rotationZ: Math.atan2(dy, dx),
+  }
+}
+
+export function cloneObjects(objects: SceneObject[]): SceneObject[] {
+  return objects.map((o) => structuredClone(o))
+}
+
+/** Screen stroke → tentative preview points in world (for ink overlay). */
+export function strokeToWorld(
+  points: Vec2[],
+  view: ViewBounds,
+  mirrored = false,
+): Vec3[] {
+  return points.map((p) => screenToWorld(p, view, mirrored))
+}
