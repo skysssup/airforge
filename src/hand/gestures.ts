@@ -2,7 +2,7 @@
  * Gesture classification + hysteresis state machine.
  * - Index-only = draw
  * - Pinch = pen up
- * - Open palm = erase (mapped to cancel in the playground)
+ * - Open palm = cancel stroke (internal mode name remains "erase")
  * - Mode hysteresis: 3 stable frames
  * - Max lost frames: 2 → cancel stroke (never connect distant points)
  */
@@ -24,14 +24,25 @@ export interface Landmark {
 /** Tip/PIP landmark indices: index, middle, ring, pinky. */
 const TIP = [8, 12, 16, 20] as const
 const PIP = [6, 10, 14, 18] as const
+const WRIST = 0
 const THUMB_TIP = 4
 const INDEX_TIP = 8
 
+function dist2d(a: Landmark, b: Landmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+/**
+ * Finger extended if tip is farther from the wrist than the PIP joint.
+ * Orientation-robust vs tip.y < pip.y (which fails when the hand is tilted).
+ */
 export function fingersUp(landmarks: Landmark[]): boolean[] {
-  // [index, middle, ring, pinky] — tip.y < pip.y means up (image coords, y down)
-  return TIP.map((tip, i) => {
-    const pip = PIP[i]!
-    return landmarks[tip]!.y < landmarks[pip]!.y
+  const wrist = landmarks[WRIST]!
+  return TIP.map((tipIdx, i) => {
+    const pipIdx = PIP[i]!
+    const tip = landmarks[tipIdx]!
+    const pip = landmarks[pipIdx]!
+    return dist2d(wrist, tip) > dist2d(wrist, pip)
   })
 }
 

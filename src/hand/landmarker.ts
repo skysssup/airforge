@@ -27,21 +27,39 @@ export interface HandFrame {
 export class HandTracker {
   private landmarker: HandLandmarker | null = null
   private ready = false
+  /** Which MediaPipe delegate succeeded during init. */
+  delegate: 'GPU' | 'CPU' | null = null
 
   async init(): Promise<void> {
     if (this.ready) return
     const vision = await FilesetResolver.forVisionTasks(WASM_CDN)
-    this.landmarker = await HandLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: MODEL_URL,
-        delegate: 'GPU',
-      },
-      runningMode: 'VIDEO',
+    const shared = {
+      runningMode: 'VIDEO' as const,
       numHands: 1,
       minHandDetectionConfidence: 0.5,
       minHandPresenceConfidence: 0.5,
       minTrackingConfidence: 0.5,
-    })
+    }
+
+    try {
+      this.landmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: MODEL_URL,
+          delegate: 'GPU',
+        },
+        ...shared,
+      })
+      this.delegate = 'GPU'
+    } catch {
+      this.landmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: MODEL_URL,
+          delegate: 'CPU',
+        },
+        ...shared,
+      })
+      this.delegate = 'CPU'
+    }
     this.ready = true
   }
 
@@ -68,5 +86,6 @@ export class HandTracker {
     this.landmarker?.close()
     this.landmarker = null
     this.ready = false
+    this.delegate = null
   }
 }

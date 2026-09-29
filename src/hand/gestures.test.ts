@@ -12,7 +12,7 @@ import {
   type Landmark,
 } from './gestures'
 
-/** Build 21 landmarks; override tips/pips for gestures. */
+/** Build 21 landmarks; override tips/pips for gestures (upright palm). */
 function makeHand(opts: {
   indexUp?: boolean
   middleUp?: boolean
@@ -45,6 +45,26 @@ function makeHand(opts: {
   return lm
 }
 
+/** Index-only hand tilted ~90° (extension along +x, not -y). */
+function makeTiltedIndexOnly(): Landmark[] {
+  const lm: Landmark[] = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5, z: 0 }))
+  lm[0] = { x: 0.3, y: 0.5 } // wrist
+  // curled middle/ring/pinky — tip closer to wrist than pip along x
+  for (const [pip, tip] of [
+    [10, 12],
+    [14, 16],
+    [18, 20],
+  ] as const) {
+    lm[pip] = { x: 0.42, y: 0.5 }
+    lm[tip] = { x: 0.38, y: 0.5 }
+  }
+  // extended index: pip then tip farther from wrist on +x
+  lm[6] = { x: 0.5, y: 0.5 }
+  lm[8] = { x: 0.75, y: 0.5 }
+  lm[4] = { x: 0.35, y: 0.4 }
+  return lm
+}
+
 describe('gesture classification', () => {
   it('detects index-only draw', () => {
     const hand = makeHand({ indexUp: true })
@@ -68,6 +88,14 @@ describe('gesture classification', () => {
     expect(isOpenPalm(hand)).toBe(true)
     expect(fingersUp(hand).every(Boolean)).toBe(true)
     expect(classifyRawGesture(hand)).toBe('erase')
+  })
+
+  it('detects index-only when hand is tilted sideways', () => {
+    const hand = makeTiltedIndexOnly()
+    // Old tip.y < pip.y metric would fail (same y); wrist-relative must pass
+    expect(hand[8]!.y).toBe(hand[6]!.y)
+    expect(isIndexOnly(hand)).toBe(true)
+    expect(classifyRawGesture(hand)).toBe('draw')
   })
 })
 
