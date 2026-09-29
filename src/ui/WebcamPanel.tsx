@@ -122,8 +122,10 @@ export function WebcamPanel({ active, onClose }: Props) {
           stable === 'draw'
             ? 'Webcam · DRAW (index)'
             : stable === 'erase'
-              ? 'Webcam · ERASE (palm)'
-              : 'Webcam · PEN UP (pinch)'
+              ? 'Webcam · CANCEL (palm)'
+              : stable === 'pen_up'
+                ? 'Webcam · PEN UP (pinch)'
+                : 'Webcam · settling…'
         appStore.setGestureLabel(label)
 
         if (shouldCancel) finishActiveStroke(true, 'hand_lost')
@@ -197,7 +199,7 @@ export function WebcamPanel({ active, onClose }: Props) {
         {error && <div className="webcam-status error">{error}</div>}
       </div>
       <p className="muted small">
-        Mirrored view. Index = draw, pinch = pen up. Mouse overlay remains active.
+        Mirrored view. Index = draw, pinch = pen up, open palm = cancel stroke. Mouse overlay remains active.
       </p>
     </aside>
   )
