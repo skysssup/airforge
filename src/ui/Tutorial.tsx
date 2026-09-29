@@ -26,13 +26,6 @@ export function Tutorial() {
             Optional: enable webcam — index finger draws, pinch = pen up. Mouse always works.
           </li>
         </ol>
-        <p className="credit">
-          Gesture &amp; shape heuristics inspired by{' '}
-          <a href="https://github.com/CodeItAlone/WritingOnAir" target="_blank" rel="noreferrer">
-            WritingOnAir
-          </a>{' '}
-          by CodeItAlone / Subrato Kundu (MIT).
-        </p>
         <div className="modal-actions">
           <button type="button" className="btn primary" onClick={() => appStore.dismissTutorial()}>
             Start forging

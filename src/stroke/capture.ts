@@ -1,6 +1,6 @@
 /**
  * Stroke capture + smoothing.
- * Informed by WritingOnAir: moving-average window of 4, cancel on hand loss
+ * Moving-average window of 4; cancel on hand loss
  * (never connect distant points across a gap).
  */
 

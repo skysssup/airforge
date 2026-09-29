@@ -4,42 +4,7 @@
 
 A browser physics playground with a science-exhibit feel: dark theme, restrained neon, real collisions. Works fully **without a webcam**.
 
-## Inspiration & attribution
-
-AirForge is **inspired by** [WritingOnAir](https://github.com/CodeItAlone/WritingOnAir) by **CodeItAlone / Subrato Kundu** (MIT License, Copyright (c) 2025 CodeItAlone — see `Backend/LICENSE` upstream and [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)).
-
-**We did not invent** the core air-writing gesture/shape ideas. WritingOnAir is a Python OpenCV + MediaPipe desktop app. AirForge is a different product: a **browser** 2.5D physics forge with a pure TypeScript recognizer **informed by** those heuristics (reimplemented — not a Python server, not a line-for-line port).
-
-### What came from WritingOnAir vs what we built
-
-| From WritingOnAir (inspiration) | Built in AirForge |
-|---------------------------------|-------------------|
-| Index-only = draw | Same gesture mapping in browser HandLandmarker |
-| Pinch = pen up | Same |
-| Open palm = erase | Mapped to cancel / erase intent in playground |
-| Mode hysteresis (3 frames) | Reimplemented TS state machine |
-| Point smoothing (window 4) | Reimplemented in `stroke/` |
-| Max lost frames 2 | Cancel stroke — never connect distant points |
-| Shape priority line → circle → rect/square | Pure TS in `shapes/` |
-| Line deviation ratios; circle MEC + coverage; rect hull + poly approx | Reimplemented without OpenCV |
-| — | Rapier physics, ramps/balls/platforms |
-| — | Mouse-first forge path, save/import JSON, replay |
-| — | React 19 + R3F + Vite SPA |
-
-### Comparison: What I built vs original
-
-| | WritingOnAir | AirForge |
-|--|--------------|----------|
-| Runtime | Python desktop | Browser (Vite SPA) |
-| Vision | MediaPipe Hands (Python) | `@mediapipe/tasks-vision` HandLandmarker |
-| Drawing | OpenCV canvas / MR overlay | SVG ink + R3F meshes |
-| Shapes | Autocorrect to ink shapes | Autocorrect → **physics bodies** |
-| Physics | None | Rapier (`@react-three/rapier`) |
-| Input without camera | Limited | **First-class mouse path** |
-| Persistence | PNG / MP4 | Versioned JSON scenes (no video) |
-| License | MIT | MIT (AirForge) + notices for upstream |
-
-## Stack (why each major dependency)
+## Stack
 
 | Dep | Why |
 |-----|-----|

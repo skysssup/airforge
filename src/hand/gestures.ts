@@ -1,9 +1,8 @@
 /**
  * Gesture classification + hysteresis state machine.
- * Informed by WritingOnAir (CodeItAlone):
  * - Index-only = draw
  * - Pinch = pen up
- * - Open palm = erase (mapped to cancel in AirForge playground)
+ * - Open palm = erase (mapped to cancel in the playground)
  * - Mode hysteresis: 3 stable frames
  * - Max lost frames: 2 → cancel stroke (never connect distant points)
  */
@@ -22,7 +21,7 @@ export interface Landmark {
   z?: number
 }
 
-/** Tip/PIP indices matching WritingOnAir: index, middle, ring, pinky. */
+/** Tip/PIP landmark indices: index, middle, ring, pinky. */
 const TIP = [8, 12, 16, 20] as const
 const PIP = [6, 10, 14, 18] as const
 const THUMB_TIP = 4

@@ -1,6 +1,5 @@
 /**
- * Pure TypeScript shape recognition informed by WritingOnAir heuristics
- * (CodeItAlone / Subrato Kundu, MIT). Reimplemented — not a Python server.
+ * Pure TypeScript shape recognition.
  *
  * Priority: line → circle → rectangle/square
  * Quality metrics are geometric fit scores (not fake ML confidence).
@@ -72,7 +71,7 @@ export function recognizeStroke(points: Vec2[]): RecognitionResult {
     return { primary: null, alternatives, ambiguous: false }
   }
 
-  // Priority matches WritingOnAir: line → circle → rectangle/square
+  // Priority: line → circle → rectangle/square
   const line = detectLine(points)
   if (line) {
     return { primary: line, alternatives, ambiguous: false }

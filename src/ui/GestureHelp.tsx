@@ -57,13 +57,6 @@ export function GestureHelp({ open, onClose }: Props) {
             </ul>
           </div>
         </div>
-        <p className="credit">
-          Heuristics informed by{' '}
-          <a href="https://github.com/CodeItAlone/WritingOnAir" target="_blank" rel="noreferrer">
-            WritingOnAir
-          </a>{' '}
-          (MIT). Shape recognition is a pure TypeScript reimplementation.
-        </p>
         <div className="modal-actions">
           <button type="button" className="btn primary" onClick={onClose}>
             Close
