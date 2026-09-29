@@ -61,7 +61,9 @@ src/
 
 ## CI
 
-GitHub Actions: `npm ci && npm run lint && npm test && npm run build` (see `.github/workflows/ci.yml`). If your PAT lacks the `workflow` scope, the workflow file may live at `docs/ci.workflow.yml` instead — copy it into `.github/workflows/` with a token that has `workflow`.
+Workflow definition: [`docs/ci.workflow.yml`](./docs/ci.workflow.yml) (`npm ci && npm run lint && npm test && npm run build`).
+
+Could not push `.github/workflows/ci.yml` — the repo PAT lacks the `workflow` scope. Copy the file into `.github/workflows/ci.yml` with a token that has `workflow` to enable Actions.
 
 ## License
 
