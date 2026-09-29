@@ -450,10 +450,6 @@ select:focus-visible {
   }
 }
 
-.credit {
-  font-size: 0.78rem;
-  color: var(--muted);
-}
 
 kbd {
   font-family: var(--mono);
