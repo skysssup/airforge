@@ -4,18 +4,7 @@
 
 ![AirForge playground](docs/screenshot.png)
 
-Draw shapes in air (or with a mouse) → forge them into Rapier rigid bodies.
-
-Browser physics playground: dark theme, real collisions. Works fully **without a webcam**.
-
-## Stack
-
-| Dep | Why |
-|-----|-----|
-| **Vite + React 19 + TypeScript** | SPA tooling |
-| **three / R3F / drei / rapier** | WebGL scene + rigid bodies |
-| **@mediapipe/tasks-vision@1.0.1** | Optional webcam HandLandmarker |
-| **vitest** | Unit tests |
+Draw with the mouse (or optional webcam hand landmarks) → shapes → Rapier rigid bodies. Vite / React / TypeScript. Webcam is optional; toggle it from the toolbar.
 
 ## Run
 
@@ -40,30 +29,11 @@ Production builds use `base: '/airforge/'` for GitHub Pages.
 
 Mouse drawing always works. Mode locks after 3 stable frames.
 
-## Features
+## Notes
 
-- Mouse forge: diagonal → ramp, circle → ball, rect → platform
-- Drop balls with Rapier collisions; gravity / bounce / friction sliders
-- Optional webcam HandLandmarker (GPU, falls back to CPU)
-- Save / import versioned JSON scenes (no video)
-- Example: Ramp & Ball · Keyboard: `Space` `Z` `R` `D` `F` `?` · rename scene inline · Stairs Drop example
+2.5D: screen-space strokes map to world x/y with z thickness; not precise 3D hand tracking.
 
-## Architecture
-
-```
-src/
-  camera/  hand/  input/  events/  stroke/  shapes/
-  coords/  scene/  physics/  render/  io/  replay/
-  ui/  fixtures/  eval/  store/
-```
-
-2.5D: draw in screen space → world x/y; meshes get z thickness; gravity on −y. Webcam is mirrored selfie view — not precise 3D tracking.
-
-## CI
-
-Workflow definition: [`docs/ci.workflow.yml`](./docs/ci.workflow.yml) (`npm ci && npm run lint && npm test && npm run build`).
-
-Could not push `.github/workflows/ci.yml` — the repo PAT lacks the `workflow` scope. Copy the file into `.github/workflows/ci.yml` with a token that has `workflow` to enable Actions.
+Diagonal → ramp, circle → ball, rect → platform. Drop balls; gravity / bounce / friction sliders. Save / import JSON scenes (no video). Examples: Ramp & Ball, Stairs Drop. Keys: `Space` `Z` `R` `D` `F` `?`.
 
 ## License
 
