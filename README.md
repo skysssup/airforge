@@ -4,7 +4,7 @@
 
 ![AirForge playground](docs/screenshot.png)
 
-Draw with the mouse (or optional webcam hand landmarks) → shapes → Rapier rigid bodies. Vite / React / TypeScript. Webcam is optional; toggle it from the toolbar.
+Draw with the mouse → shapes → Rapier rigid bodies. Optional webcam hand landmarks from the toolbar. Vite / React / TypeScript.
 
 ## Run
 

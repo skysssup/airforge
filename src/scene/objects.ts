@@ -104,26 +104,49 @@ export function objectFromRecognition(
     }
   }
 
-  // rectangle / square → platform
+  // rectangle / square → platform (preserve tilt via rotationZ)
   const p = candidate.params as RectParams
   const worldCorners = p.corners.map((c) => screenToWorld(c, view, mirrored))
   const cx = worldCorners.reduce((s, c) => s + c.x, 0) / worldCorners.length
   const cy = worldCorners.reduce((s, c) => s + c.y, 0) / worldCorners.length
-  const xs = worldCorners.map((c) => c.x)
-  const ys = worldCorners.map((c) => c.y)
-  const halfW = (Math.max(...xs) - Math.min(...xs)) / 2
-  const halfH = (Math.max(...ys) - Math.min(...ys)) / 2
-  // Flat platform: thin in Y (height), wide in X
-  const flat = halfW >= halfH
+  // Longest edge defines the platform orientation (avoid flattening tilted rects).
+  let bestLen = -1
+  let edgeDx = 1
+  let edgeDy = 0
+  for (let i = 0; i < worldCorners.length; i++) {
+    const a = worldCorners[i]!
+    const b = worldCorners[(i + 1) % worldCorners.length]!
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy)
+    if (len > bestLen) {
+      bestLen = len
+      edgeDx = dx
+      edgeDy = dy
+    }
+  }
+  const rotationZ = Math.atan2(edgeDy, edgeDx)
+  const cos = Math.cos(-rotationZ)
+  const sin = Math.sin(-rotationZ)
+  let maxU = 0
+  let maxV = 0
+  for (const c of worldCorners) {
+    const dx = c.x - cx
+    const dy = c.y - cy
+    const u = dx * cos - dy * sin
+    const v = dx * sin + dy * cos
+    maxU = Math.max(maxU, Math.abs(u))
+    maxV = Math.max(maxV, Math.abs(v))
+  }
+  const halfAlong = Math.max(maxU, 0.4)
+  const halfThick = Math.max(Math.min(maxV, 0.35), 0.12)
   return {
     id,
     kind: 'platform',
     createdAt,
     center: { x: cx, y: cy, z: 0 },
-    halfExtents: flat
-      ? { x: Math.max(halfW, 0.4), y: 0.12, z: MESH_THICKNESS / 2 }
-      : { x: Math.max(halfW, 0.3), y: Math.max(halfH, 0.3), z: MESH_THICKNESS / 2 },
-    rotationZ: 0,
+    halfExtents: { x: halfAlong, y: halfThick, z: MESH_THICKNESS / 2 },
+    rotationZ,
   }
 }
 
@@ -151,11 +174,17 @@ export function topSurfaceY(objects: SceneObject[], x: number): number | null {
   let top: number | null = null
   for (const o of objects) {
     if (o.kind === 'platform') {
-      const minX = o.center.x - o.halfExtents.x
-      const maxX = o.center.x + o.halfExtents.x
-      if (x >= minX - 0.2 && x <= maxX + 0.2) {
-        const y = o.center.y + o.halfExtents.y
-        top = top == null ? y : Math.max(top, y)
+      const cos = Math.cos(o.rotationZ)
+      const sin = Math.sin(o.rotationZ)
+      const dx = x - o.center.x
+      const localX = dx * cos
+      const halfLen = o.halfExtents.x
+      if (localX >= -halfLen - 0.2 && localX <= halfLen + 0.2) {
+        const hx = o.halfExtents.x
+        const hy = o.halfExtents.y
+        const aabbHalfY = Math.abs(hx * sin) + Math.abs(hy * cos)
+        const topY = o.center.y + aabbHalfY
+        top = top == null ? topY : Math.max(top, topY)
       }
     } else if (o.kind === 'ramp') {
       const minX = Math.min(o.start.x, o.end.x)

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.1",
   "type": "module",
-  "description": "Browser physics playground \u2014 draw shapes in air or with mouse, forge them into Rapier rigid bodies.",
+  "description": "Draw shapes into a local Rapier/Three physics scene. Optional webcam gestures.",
   "author": "skysssup",
   "license": "MIT",
   "scripts": {

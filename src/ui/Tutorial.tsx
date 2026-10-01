@@ -11,7 +11,7 @@ export function Tutorial() {
         <ol>
           <li>
             Draw a <strong>diagonal</strong> on the canvas with the mouse → forges a <em>ramp</em>.
-            Webcam is optional — use <strong>Enable webcam</strong> later if you want.
+            Mouse drawing works immediately; webcam is optional from the toolbar.
           </li>
           <li>
             Draw a <strong>circle</strong> or press <strong>Add ball</strong>.
@@ -23,7 +23,7 @@ export function Tutorial() {
             Tweak gravity / bounce / friction. Use <strong>Reset</strong> or <strong>Undo</strong>.
           </li>
           <li>
-            Optional: enable webcam — index draws, pinch = pen up, open palm = cancel stroke. Mouse always works.
+            Toolbar webcam: index draws, pinch = pen up, palm cancels.
           </li>
         </ol>
         <div className="modal-actions">

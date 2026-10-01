@@ -40,4 +40,30 @@ describe('object creation from recognition', () => {
     const top = topSurfaceY([platform], 0)!
     expect(ball.position.y).toBeGreaterThanOrEqual(top + BALL_RADIUS + SPAWN_CLEARANCE - 1e-6)
   })
+  it('preserves tilted platform rotation instead of flattening', () => {
+    // Axis-aligned AABB of a tilted rect would zero rotation; we keep edge angle.
+    const tilted = [
+      { x: 200, y: 200 },
+      { x: 320, y: 240 },
+      { x: 300, y: 300 },
+      { x: 180, y: 260 },
+    ]
+    const candidate = {
+      kind: 'rectangle' as const,
+      quality: 0.95,
+      params: { corners: tilted },
+      metrics: {},
+    }
+    const obj = objectFromRecognition(candidate as never, DEFAULT_VIEW, false, [])
+    expect(obj?.kind).toBe('platform')
+    if (obj?.kind === 'platform') {
+      expect(Math.abs(obj.rotationZ)).toBeGreaterThan(0.15)
+      const top = topSurfaceY([obj], obj.center.x)
+      expect(top).not.toBeNull()
+      const ball = createBallAt({ x: obj.center.x, y: obj.center.y, z: 0 }, [obj], false)!
+      expect(ball.position.y).toBeGreaterThanOrEqual((top as number) + SPAWN_CLEARANCE - 1e-6)
+    }
+  })
+
+
 })

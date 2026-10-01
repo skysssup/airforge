@@ -530,7 +530,7 @@ export const appStore = {
       webcamEnabled: on,
       gestureLabel: on ? 'Webcam starting…' : 'Mouse',
       statusMessage: on
-        ? 'Webcam mode — index draw, pinch pen-up. Mouse still works.'
+        ? 'Webcam on — index draws, pinch pens up.'
         : 'Mouse mode.',
     })
   },
