@@ -24,12 +24,16 @@ export interface ReplayTimeline {
   snapshots: SceneSnapshot[]
 }
 
+export const MAX_REPLAY_EVENTS = 5000
+export const MAX_REPLAY_SNAPSHOTS = 250
+
 export function createTimeline(): ReplayTimeline {
   return { events: [], snapshots: [] }
 }
 
 export function recordEvent(tl: ReplayTimeline, event: InteractionEvent): void {
-  tl.events.push(event)
+  tl.events.push(structuredClone(event))
+  if (tl.events.length > MAX_REPLAY_EVENTS) tl.events.splice(0, tl.events.length - MAX_REPLAY_EVENTS)
 }
 
 export function recordSnapshot(
@@ -45,6 +49,7 @@ export function recordSnapshot(
     physics: { ...physics },
     label,
   })
+  if (tl.snapshots.length > MAX_REPLAY_SNAPSHOTS) tl.snapshots.splice(0, tl.snapshots.length - MAX_REPLAY_SNAPSHOTS)
 }
 
 export function clearTimeline(tl: ReplayTimeline): void {
@@ -69,7 +74,8 @@ export function seekSnapshot(
   index: number,
 ): SceneSnapshot | null {
   if (tl.snapshots.length === 0) return null
-  const i = Math.max(0, Math.min(tl.snapshots.length - 1, index))
+  const safeIndex = Number.isFinite(index) ? Math.trunc(index) : 0
+  const i = Math.max(0, Math.min(tl.snapshots.length - 1, safeIndex))
   state.index = i
   return tl.snapshots[i]!
 }

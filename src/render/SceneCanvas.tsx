@@ -8,7 +8,7 @@ import { appStore } from '../store/appStore'
 import { GROUND_Y } from '../physics/params'
 
 export function SceneCanvas() {
-  const { objects, physics, liveStroke, view } = useAppState()
+  const { objects, physics, liveStroke, view, replayMode } = useAppState()
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export function SceneCanvas() {
         <hemisphereLight args={['#1e293b', '#0b1020', 0.4]} />
 
         <Suspense fallback={null}>
-          <PhysicsWorld objects={objects} physics={physics} />
+          <PhysicsWorld objects={objects} physics={{ ...physics, paused: physics.paused || replayMode }} />
           <InkOverlay points={liveStroke} view={view} />
         </Suspense>
 

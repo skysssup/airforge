@@ -39,3 +39,5 @@ Diagonal → ramp, circle → ball, rect → platform. Weak / ambiguous circles 
 ## License
 
 MIT © 2026 skysssup — [`LICENSE`](./LICENSE) · [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)
+
+Replay retains the most recent 5,000 events and 250 snapshots. Replay mode pauses physics and drawing while a snapshot is displayed. Camera initialization releases tracks and trackers on failure or cancellation, and late failures from a closed session cannot change a newer session. Invalid camera coordinates are ignored; physics controls enforce finite parameter bounds.

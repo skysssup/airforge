@@ -11,7 +11,7 @@ import {
   objectFromRecognition,
 } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
-import { DEFAULT_PHYSICS, MAX_OBJECTS } from '../physics/params'
+import { DEFAULT_PHYSICS, MAX_OBJECTS, GRAVITY_MIN, GRAVITY_MAX, BOUNCE_MIN, BOUNCE_MAX, FRICTION_MIN, FRICTION_MAX } from '../physics/params'
 import { recognizeStroke, shapeToObjectKind, type ShapeCandidate } from '../shapes/recognize'
 import type { ViewBounds } from '../coords/transforms'
 import { DEFAULT_VIEW } from '../coords/transforms'
@@ -103,7 +103,7 @@ function setState(partial: Partial<AppState>): void {
 
 function pushHistory(): void {
   const entry: SceneSnapshot = {
-    objects: cloneObjects(state.objects),
+    objects: cloneObjects(mergeLiveBallPoses(state.objects)),
     physics: { ...state.physics },
     sceneName: state.sceneName,
   }
@@ -472,7 +472,12 @@ export const appStore = {
   },
 
   setPhysics(partial: Partial<PhysicsParams>): void {
-    const physics = { ...state.physics, ...partial }
+    const physics = { ...state.physics }
+    for (const [key, min, max] of [['gravity', GRAVITY_MIN, GRAVITY_MAX], ['bounce', BOUNCE_MIN, BOUNCE_MAX], ['friction', FRICTION_MIN, FRICTION_MAX]] as const) {
+      const value = partial[key]
+      if (typeof value === 'number' && Number.isFinite(value)) physics[key] = Math.max(min, Math.min(max, value))
+    }
+    if (typeof partial.paused === 'boolean') physics.paused = partial.paused
     logEvent({
       type: 'PARAMS_CHANGED',
       id: makeEventId(),
@@ -611,6 +616,7 @@ export const appStore = {
   },
 
   applySnapshotObjects(objects: SceneObject[], physics: PhysicsParams): void {
+    clearAllLiveBallPoses()
     setState({ objects: cloneObjects(objects), physics: { ...physics } })
   },
 

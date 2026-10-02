@@ -47,3 +47,11 @@ describe('stroke capture', () => {
     expect(s.points.find((p) => p.x === 99)).toBeUndefined()
   })
 })
+
+
+it('ignores nonfinite camera coordinates without poisoning stroke smoothing', () => {
+  const stroke = createStroke('invalid', 'webcam')
+  expect(addRawPoint(stroke, { x: NaN, y: 10 })).toBeNull()
+  expect(addRawPoint(stroke, { x: 10, y: Infinity })).toBeNull()
+  expect(addRawPoint(stroke, { x: 10, y: 10 })).toEqual({ x: 10, y: 10 })
+})

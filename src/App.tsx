@@ -13,7 +13,7 @@ import { appStore } from './store/appStore'
 import './styles/app.css'
 
 export default function App() {
-  const { tutorialDismissed, webcamEnabled } = useAppState()
+  const { tutorialDismissed, webcamEnabled, replayMode } = useAppState()
   const [helpOpen, setHelpOpen] = useState(false)
   const [replayOpen, setReplayOpen] = useState(false)
 
@@ -76,10 +76,10 @@ export default function App() {
 
       <main className="stage">
         <SceneCanvas />
-        <DrawingOverlay enabled />
+        <DrawingOverlay enabled={!replayMode} />
         <SuggestionPicker />
         <WebcamPanel
-          active={webcamEnabled}
+          active={webcamEnabled && !replayMode}
           onClose={() => appStore.setWebcamEnabled(false)}
         />
       </main>

@@ -38,6 +38,19 @@ export function WebcamPanel({ active, onClose }: Props) {
   useEffect(() => {
     if (!active) return
     let cancelled = false
+    let ownedStream: MediaStream | null = null
+    let ownedTracker: HandTracker | null = null
+
+    function releaseResources() {
+      ownedTracker?.close()
+      if (trackerRef.current === ownedTracker) trackerRef.current = null
+      ownedTracker = null
+      stopCamera(ownedStream)
+      if (streamRef.current === ownedStream) streamRef.current = null
+      const video = videoRef.current
+      if (video && video.srcObject === ownedStream) video.srcObject = null
+      ownedStream = null
+    }
 
     async function start() {
       setError(null)
@@ -48,18 +61,23 @@ export function WebcamPanel({ active, onClose }: Props) {
           stopCamera(stream)
           return
         }
+        ownedStream = stream
         streamRef.current = stream
         const video = videoRef.current
-        if (!video) return
+        if (!video) throw new Error('Camera preview is unavailable')
         video.srcObject = stream
         await video.play()
+        if (cancelled) { releaseResources(); return }
 
         // Dynamic import keeps MediaPipe out of the initial bundle
         const { HandTracker: HT } = await import('../hand/landmarker')
+        if (cancelled) { releaseResources(); return }
         const tracker = new HT()
+        ownedTracker = tracker
         await tracker.init()
         if (cancelled) {
           tracker.close()
+          releaseResources()
           return
         }
         trackerRef.current = tracker
@@ -67,6 +85,8 @@ export function WebcamPanel({ active, onClose }: Props) {
         appStore.setGestureLabel('Webcam · searching for hand')
         loop()
       } catch (err) {
+        releaseResources()
+        if (cancelled) return
         const ce = err instanceof CameraError ? err : null
         const msg = ce ? `${ce.message} ${cameraErrorHint(ce.code)}` : String(err)
         setError(msg)
@@ -168,10 +188,7 @@ export function WebcamPanel({ active, onClose }: Props) {
     return () => {
       cancelled = true
       cancelAnimationFrame(rafRef.current)
-      trackerRef.current?.close()
-      trackerRef.current = null
-      stopCamera(streamRef.current)
-      streamRef.current = null
+      releaseResources()
       if (strokeRef.current) {
         cancelStroke(strokeRef.current)
         strokeRef.current = null

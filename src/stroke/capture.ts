@@ -29,7 +29,7 @@ export function createStroke(id: string, source: 'mouse' | 'webcam'): StrokeStat
 
 /** Push a raw point; returns the smoothed point if accepted, else null. */
 export function addRawPoint(stroke: StrokeState, raw: Vec2): Vec2 | null {
-  if (!stroke.active) return null
+  if (!stroke.active || !Number.isFinite(raw.x) || !Number.isFinite(raw.y)) return null
   if (stroke.points.length >= MAX_STROKE_POINTS) return null
 
   // Gap against the *raw* tip so smoothing cannot dilute a teleport jump

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import {
@@ -16,6 +16,11 @@ interface Props {
 export function ReplayPanel({ open, onClose }: Props) {
   const { timeline } = useAppState()
   const [ctrl, setCtrl] = useState(() => createReplayController())
+
+  useEffect(() => {
+    appStore.setReplayMode(open)
+    return () => appStore.setReplayMode(false)
+  }, [open])
 
   if (!open) return null
 

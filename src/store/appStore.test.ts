@@ -182,3 +182,11 @@ describe('freeze uses synced poses', () => {
     clearAllLiveBallPoses()
   })
 })
+
+
+it('clamps physics changes and ignores nonfinite values', () => {
+  appStore._resetForTests()
+  const gravity = appStore.getState().physics.gravity
+  appStore.setPhysics({ gravity: NaN, bounce: 99, friction: -1 })
+  expect(appStore.getState().physics).toMatchObject({ gravity, bounce: 1, friction: 0 })
+})
