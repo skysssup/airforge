@@ -67,3 +67,28 @@ describe('object creation from recognition', () => {
 
 
 })
+
+describe('collider clearance', () => {
+  it('lifts a ball clear of a near-vertical ramp AABB', () => {
+    const ramp = {
+      id: 'r-vert',
+      kind: 'ramp' as const,
+      createdAt: 0,
+      start: { x: 0, y: -2, z: 0 },
+      end: { x: 0.05, y: 2, z: 0 },
+      width: 0.28,
+      thickness: 0.35,
+    }
+    const ball = createBallAt({ x: 0, y: 0, z: 0 }, [ramp], false)!
+    const top = topSurfaceY([ramp], 0)!
+    expect(top).toBeGreaterThan(0)
+    expect(ball.position.y).toBeGreaterThanOrEqual(top + BALL_RADIUS + SPAWN_CLEARANCE - 1e-6)
+  })
+
+  it('lifts a ball above the ground collider top', async () => {
+    const { ballMinY } = await import('../physics/params')
+    const { clearBallFromColliders } = await import('./objects')
+    const cleared = clearBallFromColliders({ x: 0, y: -10, z: 0 }, BALL_RADIUS, [])
+    expect(cleared.y).toBeGreaterThanOrEqual(ballMinY(BALL_RADIUS) - 1e-6)
+  })
+})

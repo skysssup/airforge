@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { Vec2 } from '../events/types'
 import { screenToWorld, type ViewBounds } from '../coords/transforms'
@@ -25,6 +25,16 @@ export function InkOverlay({
     })
     return new THREE.Line(geom, mat)
   }, [points, view])
+
+  useEffect(() => {
+    return () => {
+      if (!line) return
+      line.geometry.dispose()
+      const mat = line.material
+      if (Array.isArray(mat)) mat.forEach((m) => m.dispose())
+      else mat.dispose()
+    }
+  }, [line])
 
   if (!line) return null
   return <primitive object={line} />

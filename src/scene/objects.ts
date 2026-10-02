@@ -10,7 +10,8 @@ import { screenToWorld, type ViewBounds, DEFAULT_VIEW } from '../coords/transfor
 import {
   BALL_RADIUS,
   MESH_THICKNESS,
-  ballSpawnY,
+  SPAWN_CLEARANCE,
+  ballMinY,
   MAX_OBJECTS,
 } from '../physics/params'
 
@@ -91,14 +92,16 @@ export function objectFromRecognition(
   if (candidate.kind === 'circle') {
     const p = candidate.params as CircleParams
     const center = screenToWorld({ x: p.cx, y: p.cy }, view, mirrored)
-    // Keep ball at recognized position but lift if overlapping surfaces
-    const surfaceTop = topSurfaceY(existing, center.x)
-    const y = Math.max(center.y, ballSpawnY(surfaceTop))
+    const position = clearBallFromColliders(
+      { x: center.x, y: center.y, z: 0 },
+      BALL_RADIUS,
+      existing,
+    )
     return {
       id,
       kind: 'ball',
       createdAt,
-      position: { x: center.x, y, z: 0 },
+      position,
       radius: BALL_RADIUS,
       dynamic: false,
     }
@@ -157,46 +160,64 @@ export function createBallAt(
   dynamic = false,
 ): BallObject | null {
   if (existing.length >= MAX_OBJECTS) return null
-  const surfaceTop = topSurfaceY(existing, position.x)
-  const y = Math.max(position.y, ballSpawnY(surfaceTop))
+  const cleared = clearBallFromColliders(position, BALL_RADIUS, existing)
   return {
     id: makeObjectId('ball'),
     kind: 'ball',
     createdAt: Date.now(),
-    position: { x: position.x, y, z: 0 },
+    position: { x: cleared.x, y: cleared.y, z: 0 },
     radius: BALL_RADIUS,
     dynamic,
   }
 }
 
-/** Approximate top Y of static surfaces under a given X (for spawn clearance). */
+/**
+ * Approximate top Y of static surfaces under a given X (for spawn clearance).
+ * Uses the world AABB of the same rotated cuboid PhysicsWorld mounts, so
+ * steep / near-vertical ramps cannot leave a ball embedded in the collider.
+ */
 export function topSurfaceY(objects: SceneObject[], x: number): number | null {
   let top: number | null = null
   for (const o of objects) {
     if (o.kind === 'platform') {
       const cos = Math.cos(o.rotationZ)
       const sin = Math.sin(o.rotationZ)
-      const dx = x - o.center.x
-      const localX = dx * cos
-      const halfLen = o.halfExtents.x
-      if (localX >= -halfLen - 0.2 && localX <= halfLen + 0.2) {
-        const hx = o.halfExtents.x
-        const hy = o.halfExtents.y
+      const hx = o.halfExtents.x
+      const hy = o.halfExtents.y
+      const aabbHalfX = Math.abs(hx * cos) + Math.abs(hy * sin)
+      if (x >= o.center.x - aabbHalfX - 0.2 && x <= o.center.x + aabbHalfX + 0.2) {
         const aabbHalfY = Math.abs(hx * sin) + Math.abs(hy * cos)
         const topY = o.center.y + aabbHalfY
         top = top == null ? topY : Math.max(top, topY)
       }
     } else if (o.kind === 'ramp') {
-      const minX = Math.min(o.start.x, o.end.x)
-      const maxX = Math.max(o.start.x, o.end.x)
-      if (x >= minX - 0.3 && x <= maxX + 0.3) {
-        const t = (x - o.start.x) / (o.end.x - o.start.x || 1e-6)
-        const y = o.start.y + t * (o.end.y - o.start.y) + o.width
-        top = top == null ? y : Math.max(top, y)
+      const pose = rampPose(o)
+      const halfLen = Math.max(pose.length / 2, 0.1)
+      const halfW = o.width
+      const cos = Math.cos(pose.rotationZ)
+      const sin = Math.sin(pose.rotationZ)
+      const aabbHalfX = Math.abs(halfLen * cos) + Math.abs(halfW * sin)
+      const aabbHalfY = Math.abs(halfLen * sin) + Math.abs(halfW * cos)
+      if (x >= pose.center.x - aabbHalfX - 0.2 && x <= pose.center.x + aabbHalfX + 0.2) {
+        const topY = pose.center.y + aabbHalfY
+        top = top == null ? topY : Math.max(top, topY)
       }
     }
   }
   return top
+}
+
+/** Lift a ball center so it clears the ground collider and any surface under its X. */
+export function clearBallFromColliders(
+  position: Vec3,
+  radius: number,
+  existing: SceneObject[],
+): Vec3 {
+  const surfaceTop = topSurfaceY(existing, position.x)
+  const surfaceClear =
+    surfaceTop == null ? -Infinity : surfaceTop + radius + SPAWN_CLEARANCE
+  const y = Math.max(position.y, surfaceClear, ballMinY(radius))
+  return { x: position.x, y, z: position.z }
 }
 
 /** Ramp center, length, and Z-rotation for mesh placement. */

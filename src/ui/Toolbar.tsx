@@ -145,12 +145,15 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
           type="button"
           className="btn"
           onClick={() => {
-            const json = exportSceneJson(sceneName || 'AirForge Scene', objects, physics)
+            appStore.syncLiveBallPoses()
+            const { objects: liveObjects, physics: livePhysics, sceneName: liveName } =
+              appStore.getState()
+            const json = exportSceneJson(liveName || 'AirForge Scene', liveObjects, livePhysics)
             const blob = new Blob([json], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `${(sceneName || 'airforge-scene').replace(/\s+/g, '-').toLowerCase()}.json`
+            a.download = `${(liveName || 'airforge-scene').replace(/\s+/g, '-').toLowerCase()}.json`
             a.click()
             URL.revokeObjectURL(url)
             appStore.setStatus('Scene exported as JSON (no video).')

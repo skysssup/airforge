@@ -55,9 +55,22 @@ export const SPAWN_CLEARANCE = 0.15
 export const DEFAULT_DROP_Y = 3.5
 
 export const MAX_OBJECTS = 40
+
+/**
+ * Ground rigid body center Y and CuboidCollider half-height (see PhysicsWorld).
+ * Ball centers must sit at or above GROUND_TOP_Y + radius to avoid embedding.
+ */
 export const GROUND_Y = -4.2
+export const GROUND_HALF_HEIGHT = 0.2
+export const GROUND_TOP_Y = GROUND_Y + GROUND_HALF_HEIGHT
 
 export function ballSpawnY(surfaceTopY: number | null): number {
-  if (surfaceTopY == null) return DEFAULT_DROP_Y
-  return surfaceTopY + BALL_RADIUS + SPAWN_CLEARANCE
+  const floorClear = GROUND_TOP_Y + BALL_RADIUS + SPAWN_CLEARANCE
+  if (surfaceTopY == null) return Math.max(DEFAULT_DROP_Y, floorClear)
+  return Math.max(surfaceTopY + BALL_RADIUS + SPAWN_CLEARANCE, floorClear)
+}
+
+/** Minimum ball-center Y that clears the ground collider for a given radius. */
+export function ballMinY(radius: number): number {
+  return GROUND_TOP_Y + radius + SPAWN_CLEARANCE
 }

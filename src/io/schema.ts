@@ -19,6 +19,7 @@ import {
   MIN_OBJECT_SIZE,
   WORLD_HALF_HEIGHT,
   WORLD_HALF_WIDTH,
+  ballMinY,
 } from '../physics/params'
 
 export const SCENE_FORMAT_VERSION = 1 as const
@@ -139,9 +140,14 @@ export function validateSceneJson(raw: string): ValidationResult {
   }
 
   const objects: SerializedObject[] = []
+  const seenIds = new Set<string>()
   for (const item of obj.objects) {
     const parsed = parseObject(item)
     if (!parsed.ok) return parsed
+    if (seenIds.has(parsed.object.id)) {
+      return { ok: false, error: `Duplicate object id: ${parsed.object.id}` }
+    }
+    seenIds.add(parsed.object.id)
     objects.push(parsed.object)
   }
 
@@ -230,10 +236,15 @@ function parseObject(
     base.thickness = thickness
   } else if (o.kind === 'ball') {
     if (!isVec3(o.position)) return { ok: false, error: 'Ball missing position.' }
-    base.position = clampWorldVec(o.position)
     const radius = isNum(o.radius) ? o.radius : 0.35
     if (!isPositiveSize(radius)) {
       return { ok: false, error: 'Ball radius must be positive and within limits.' }
+    }
+    const clamped = clampWorldVec(o.position)
+    // Floor clamp uses ground collider top + radius, not ground center.
+    base.position = {
+      ...clamped,
+      y: Math.max(clamped.y, ballMinY(radius)),
     }
     base.radius = radius
     base.dynamic = typeof o.dynamic === 'boolean' ? o.dynamic : false

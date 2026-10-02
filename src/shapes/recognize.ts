@@ -83,10 +83,11 @@ export function recognizeStroke(points: Vec2[]): RecognitionResult {
   if (circle) {
     // Circles often approx to 4-gons; only surface rect as alternative when circle is weak
     if (rect && circle.quality < 0.75) alternatives.push(rect)
+    const ambiguous = alternatives.length > 0
     return {
       primary: circle,
       alternatives,
-      ambiguous: false,
+      ambiguous,
     }
   }
 

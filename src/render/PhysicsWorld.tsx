@@ -1,9 +1,11 @@
-import { type ReactNode, useMemo } from 'react'
-import { Physics, RigidBody, CuboidCollider, BallCollider } from '@react-three/rapier'
+import { type ReactNode, useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Physics, RigidBody, CuboidCollider, BallCollider, type RapierRigidBody } from '@react-three/rapier'
 import type { SceneObject, RampObject, BallObject, PlatformObject } from '../scene/objects'
 import { rampPose } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
-import { GROUND_Y, MESH_THICKNESS } from '../physics/params'
+import { GROUND_HALF_HEIGHT, GROUND_Y, MESH_THICKNESS } from '../physics/params'
+import { clearLiveBallPose, setLiveBallPose } from '../physics/livePoses'
 
 interface Props {
   objects: SceneObject[]
@@ -19,10 +21,14 @@ export function PhysicsWorld({ objects, physics, children }: Props) {
 
   return (
     <Physics gravity={gravity} timeStep="vary" paused={physics.paused}>
-      {/* Invisible ground plane */}
+      {/* Invisible ground plane — CuboidCollider half-height is GROUND_HALF_HEIGHT */}
       <RigidBody type="fixed" position={[0, GROUND_Y, 0]} colliders={false} name="ground">
-        <CuboidCollider args={[20, 0.2, 4]} friction={physics.friction} restitution={physics.bounce * 0.3} />
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]} receiveShadow>
+        <CuboidCollider
+          args={[20, GROUND_HALF_HEIGHT, 4]}
+          friction={physics.friction}
+          restitution={physics.bounce * 0.3}
+        />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_HALF_HEIGHT, 0]} receiveShadow>
           <planeGeometry args={[40, 8]} />
           <meshStandardMaterial color="#12182a" metalness={0.2} roughness={0.85} />
         </mesh>
@@ -90,9 +96,23 @@ function RampBody({ ramp, physics }: { ramp: RampObject; physics: PhysicsParams 
 }
 
 function BallBody({ ball, physics }: { ball: BallObject; physics: PhysicsParams }) {
+  const bodyRef = useRef<RapierRigidBody>(null)
   const type = ball.dynamic ? 'dynamic' : 'kinematicPosition'
+
+  useEffect(() => {
+    return () => clearLiveBallPose(ball.id)
+  }, [ball.id])
+
+  useFrame(() => {
+    const body = bodyRef.current
+    if (!body || !ball.dynamic) return
+    const t = body.translation()
+    setLiveBallPose(ball.id, { x: t.x, y: t.y, z: t.z })
+  })
+
   return (
     <RigidBody
+      ref={bodyRef}
       key={`${ball.id}-${ball.dynamic ? 'dyn' : 'kin'}`}
       type={type}
       position={[ball.position.x, ball.position.y, ball.position.z]}

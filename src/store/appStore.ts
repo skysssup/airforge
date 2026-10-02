@@ -23,6 +23,7 @@ import {
 } from '../replay/timeline'
 import { makeEventId, nowMs, type InteractionEvent } from '../events/types'
 import { rampAndBall } from '../fixtures/scenes'
+import { snapshotLiveBallPoses, clearAllLiveBallPoses } from '../physics/livePoses'
 
 export interface AmbiguousSuggestion {
   strokeId: string
@@ -31,13 +32,20 @@ export interface AmbiguousSuggestion {
   alternatives: ShapeCandidate[]
 }
 
+/** Undo unit: objects + scene name + physics as one snapshot. */
+export interface SceneSnapshot {
+  objects: SceneObject[]
+  physics: PhysicsParams
+  sceneName: string
+}
+
 export interface AppState {
   objects: SceneObject[]
   physics: PhysicsParams
   view: ViewBounds
   liveStroke: Vec2[]
   strokeSource: 'mouse' | 'webcam' | null
-  history: SceneObject[][]
+  history: SceneSnapshot[]
   suggestion: AmbiguousSuggestion | null
   tutorialDismissed: boolean
   webcamEnabled: boolean
@@ -94,8 +102,25 @@ function setState(partial: Partial<AppState>): void {
 }
 
 function pushHistory(): void {
-  const history = [...state.history, cloneObjects(state.objects)].slice(-50)
+  const entry: SceneSnapshot = {
+    objects: cloneObjects(state.objects),
+    physics: { ...state.physics },
+    sceneName: state.sceneName,
+  }
+  const history = [...state.history, entry].slice(-50)
   setState({ history })
+}
+
+/** Copy live Rapier ball translations into store object positions. */
+function mergeLiveBallPoses(objects: SceneObject[]): SceneObject[] {
+  const poses = snapshotLiveBallPoses()
+  if (Object.keys(poses).length === 0) return objects
+  return objects.map((o) => {
+    if (o.kind !== 'ball') return o
+    const pos = poses[o.id]
+    if (!pos) return o
+    return { ...o, position: { x: pos.x, y: pos.y, z: pos.z } }
+  })
 }
 
 function logEvent(event: InteractionEvent): void {
@@ -413,6 +438,7 @@ export const appStore = {
   resetScene(): void {
     pushHistory()
     logEvent({ type: 'SCENE_RESET', id: makeEventId(), t: nowMs() })
+    clearAllLiveBallPoses()
     setState({
       objects: [],
       liveStroke: [],
@@ -432,11 +458,14 @@ export const appStore = {
     const history = state.history.slice()
     const prev = history.pop()!
     logEvent({ type: 'UNDO', id: makeEventId(), t: nowMs() })
+    clearAllLiveBallPoses()
     setState({
-      objects: prev,
+      objects: prev.objects,
+      physics: { ...prev.physics },
+      sceneName: prev.sceneName,
       history,
       suggestion: null,
-      objectLimitHit: prev.length >= MAX_OBJECTS,
+      objectLimitHit: prev.objects.length >= MAX_OBJECTS,
       statusMessage: 'Undo.',
     })
     snap('undo')
@@ -470,6 +499,7 @@ export const appStore = {
 
   loadExample(objects: SceneObject[], name: string, physics?: PhysicsParams): void {
     pushHistory()
+    clearAllLiveBallPoses()
     const cloned = cloneObjects(objects)
     setState({
       objects: cloned,
@@ -495,6 +525,7 @@ export const appStore = {
 
   replaceObjects(objects: SceneObject[], name: string, physics: PhysicsParams): void {
     pushHistory()
+    clearAllLiveBallPoses()
     const cloned = cloneObjects(objects)
     setState({
       objects: cloned,
@@ -555,14 +586,24 @@ export const appStore = {
       setState({ statusMessage: 'No moving balls to freeze.' })
       return
     }
+    // Persist live Rapier poses into store before remounting as kinematic.
+    const withPoses = mergeLiveBallPoses(state.objects)
+    state = { ...state, objects: withPoses }
     pushHistory()
-    const objects = state.objects.map((o) =>
+    const objects = withPoses.map((o) =>
       o.kind === 'ball' && o.dynamic ? { ...o, dynamic: false } : o,
     )
+    clearAllLiveBallPoses()
     setState({
       objects,
       statusMessage: `Froze ${balls.length} ball${balls.length === 1 ? '' : 's'}.`,
     })
+  },
+
+  /** Merge live Rapier poses into store (call before JSON export). */
+  syncLiveBallPoses(): void {
+    const objects = mergeLiveBallPoses(state.objects)
+    if (objects !== state.objects) setState({ objects })
   },
 
   setReplayMode(on: boolean): void {
@@ -575,6 +616,7 @@ export const appStore = {
 
   /** Test helper */
   _resetForTests(): void {
+    clearAllLiveBallPoses()
     state = createInitialState()
     state.tutorialDismissed = true
     emit()

@@ -1,4 +1,5 @@
 import type { SceneObject } from '../scene/objects'
+import { clearBallFromColliders } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
 import {
   serializeScene,
@@ -42,7 +43,7 @@ export function objectsToSerialized(objects: SceneObject[]): SerializedObject[] 
 }
 
 export function serializedToObjects(file: AirForgeSceneFile): SceneObject[] {
-  return file.objects.map((o) => {
+  const objects: SceneObject[] = file.objects.map((o) => {
     if (o.kind === 'ramp') {
       return {
         id: o.id,
@@ -71,6 +72,15 @@ export function serializedToObjects(file: AirForgeSceneFile): SceneObject[] {
       center: o.center!,
       halfExtents: o.halfExtents!,
       rotationZ: o.rotationZ ?? 0,
+    }
+  })
+  // Second pass: lift balls clear of floor + static colliders (ramps/platforms).
+  const statics = objects.filter((o) => o.kind !== 'ball')
+  return objects.map((o) => {
+    if (o.kind !== 'ball') return o
+    return {
+      ...o,
+      position: clearBallFromColliders(o.position, o.radius, statics),
     }
   })
 }

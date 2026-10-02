@@ -134,3 +134,51 @@ describe('rename + freeze', () => {
     expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
   })
 })
+
+describe('undo restores name + physics', () => {
+  beforeEach(() => {
+    appStore._resetForTests()
+  })
+
+  it('undo after import restores previous sceneName and physics', () => {
+    appStore.setSceneName('Before')
+    appStore.setPhysics({ gravity: 5, bounce: 0.1, friction: 0.2 })
+    const before = {
+      name: appStore.getState().sceneName,
+      gravity: appStore.getState().physics.gravity,
+    }
+    appStore.replaceObjects(rampAndBall.objects, rampAndBall.name, rampAndBall.physics)
+    expect(appStore.getState().sceneName).toBe(rampAndBall.name)
+    expect(appStore.getState().physics.gravity).toBe(rampAndBall.physics.gravity)
+    appStore.undo()
+    expect(appStore.getState().sceneName).toBe(before.name)
+    expect(appStore.getState().physics.gravity).toBe(before.gravity)
+    expect(appStore.getState().objects).toHaveLength(0)
+  })
+})
+
+describe('freeze uses synced poses', () => {
+  beforeEach(() => {
+    appStore._resetForTests()
+  })
+
+  it('freezeBalls keeps an injected live pose instead of the spawn position', async () => {
+    const { setLiveBallPose, clearAllLiveBallPoses } = await import('../physics/livePoses')
+    appStore.loadRampAndBall()
+    appStore.dropBall()
+    const ball = appStore.getState().objects.find((o) => o.kind === 'ball')!
+    expect(ball.kind).toBe('ball')
+    if (ball.kind !== 'ball') return
+    const spawnY = ball.position.y
+    setLiveBallPose(ball.id, { x: 1.25, y: -1.5, z: 0 })
+    appStore.freezeBalls()
+    const frozen = appStore.getState().objects.find((o) => o.id === ball.id)!
+    expect(frozen.kind).toBe('ball')
+    if (frozen.kind !== 'ball') return
+    expect(frozen.dynamic).toBe(false)
+    expect(frozen.position.x).toBe(1.25)
+    expect(frozen.position.y).toBe(-1.5)
+    expect(frozen.position.y).not.toBe(spawnY)
+    clearAllLiveBallPoses()
+  })
+})

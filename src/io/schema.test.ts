@@ -10,9 +10,9 @@ import { rampAndBall } from '../fixtures/scenes'
 import {
   DEFAULT_PHYSICS,
   FRICTION_MAX,
-  GROUND_Y,
   WORLD_HALF_HEIGHT,
   WORLD_HALF_WIDTH,
+  ballMinY,
 } from '../physics/params'
 
 function scene(extra: Record<string, unknown> = {}) {
@@ -151,7 +151,7 @@ describe('export/import', () => {
     if (!r.ok) expect(r.error).toMatch(/width|thickness/i)
   })
 
-  it('clamps off-world ball position into visible bounds / above ground', () => {
+  it('clamps off-world ball position into visible bounds / above ground collider', () => {
     const r = validateSceneJson(
       JSON.stringify(
         scene({
@@ -171,8 +171,35 @@ describe('export/import', () => {
     if (!r.ok) return
     const ball = r.scene.objects[0]!
     expect(ball.position!.x).toBe(WORLD_HALF_WIDTH)
-    expect(ball.position!.y).toBe(GROUND_Y)
+    expect(ball.position!.y).toBe(ballMinY(0.35))
     expect(ball.position!.z).toBe(1)
+  })
+
+  it('rejects duplicate object ids', () => {
+    const r = validateSceneJson(
+      JSON.stringify(
+        scene({
+          objects: [
+            {
+              id: 'dup',
+              kind: 'ball',
+              createdAt: 0,
+              position: { x: 0, y: 1, z: 0 },
+              radius: 0.35,
+            },
+            {
+              id: 'dup',
+              kind: 'ball',
+              createdAt: 1,
+              position: { x: 1, y: 1, z: 0 },
+              radius: 0.35,
+            },
+          ],
+        }),
+      ),
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/duplicate/i)
   })
 
   it('clampWorldVec respects shared world constants', () => {
