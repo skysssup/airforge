@@ -19,10 +19,6 @@ export function clearAllLiveBallPoses(): void {
   poses.clear()
 }
 
-export function getLiveBallPoses(): ReadonlyMap<string, Vec3> {
-  return poses
-}
-
 /** Snapshot copy for store merge. */
 export function snapshotLiveBallPoses(): Record<string, Vec3> {
   const out: Record<string, Vec3> = {}

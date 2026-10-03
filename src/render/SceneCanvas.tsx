@@ -1,11 +1,22 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { Grid } from '@react-three/drei'
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useRef } from 'react'
 import { PhysicsWorld } from './PhysicsWorld'
 import { InkOverlay } from './InkOverlay'
 import { useAppState } from '../ui/hooks'
 import { appStore } from '../store/appStore'
 import { GROUND_Y } from '../physics/params'
+import { DEFAULT_VIEW } from '../coords/transforms'
+import { CAMERA_FAR, CAMERA_FOV_DEG, CAMERA_NEAR, cameraDistanceFor, viewBoundsFor } from '../coords/camera'
+
+function CameraRig() {
+  const camera = useThree((s) => s.camera)
+  const { width, height } = useThree((s) => s.size)
+  useLayoutEffect(() => {
+    camera.position.set(0, 0, cameraDistanceFor(viewBoundsFor(width, height)))
+  }, [camera, width, height])
+  return null
+}
 
 export function SceneCanvas() {
   const { objects, physics, liveStroke, view, replayMode } = useAppState()
@@ -17,10 +28,10 @@ export function SceneCanvas() {
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect
       if (!cr) return
-      appStore.setView({ width: cr.width, height: cr.height })
+      appStore.setView(viewBoundsFor(cr.width, cr.height))
     })
     ro.observe(el)
-    appStore.setView({ width: el.clientWidth, height: el.clientHeight })
+    appStore.setView(viewBoundsFor(el.clientWidth, el.clientHeight))
     return () => ro.disconnect()
   }, [])
 
@@ -29,12 +40,13 @@ export function SceneCanvas() {
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ position: [0, 1.2, 12], fov: 42, near: 0.1, far: 80 }}
+        camera={{ position: [0, 0, cameraDistanceFor(DEFAULT_VIEW)], fov: CAMERA_FOV_DEG, near: CAMERA_NEAR, far: CAMERA_FAR }}
         gl={{ antialias: true, alpha: false }}
         onCreated={({ gl }) => {
           gl.setClearColor('#0b1020')
         }}
       >
+        <CameraRig />
         <color attach="background" args={['#0b1020']} />
         <ambientLight intensity={0.45} />
         <directionalLight

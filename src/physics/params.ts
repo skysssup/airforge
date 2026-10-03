@@ -36,8 +36,8 @@ export const MESH_THICKNESS = 0.35
 export const BALL_RADIUS = 0.35
 
 /**
- * Visible world half-extents at the draw plane (shared with coords + importer).
- * Must stay in sync with DEFAULT_VIEW in coords/transforms.ts.
+ * World region of the draw plane that is always visible (see coords/camera.ts);
+ * also the bounds enforced on imported scenes. Matches a 16:9 viewport exactly.
  */
 export const WORLD_HALF_WIDTH = 8
 export const WORLD_HALF_HEIGHT = 4.5

@@ -19,7 +19,6 @@ export type InteractionEventType =
   | 'PARAMS_CHANGED'
   | 'SUGGESTION_RESOLVED'
   | 'SCENE_LOADED'
-  | 'REPLAY_TICK'
 
 export interface BaseEvent {
   type: InteractionEventType
@@ -98,11 +97,6 @@ export interface SceneLoadedEvent extends BaseEvent {
   name: string
 }
 
-export interface ReplayTickEvent extends BaseEvent {
-  type: 'REPLAY_TICK'
-  index: number
-}
-
 export type InteractionEvent =
   | StrokeStartedEvent
   | PointAddedEvent
@@ -117,7 +111,6 @@ export type InteractionEvent =
   | ParamsChangedEvent
   | SuggestionResolvedEvent
   | SceneLoadedEvent
-  | ReplayTickEvent
 
 let _seq = 0
 export function makeEventId(prefix = 'ev'): string {

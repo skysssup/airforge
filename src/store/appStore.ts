@@ -90,6 +90,7 @@ function createInitialState(): AppState {
 }
 
 let state: AppState = createInitialState()
+let liveScene: { objects: SceneObject[]; physics: PhysicsParams } | null = null
 const listeners = new Set<Listener>()
 
 function emit(): void {
@@ -113,6 +114,7 @@ function pushHistory(): void {
 
 /** Copy live Rapier ball translations into store object positions. */
 function mergeLiveBallPoses(objects: SceneObject[]): SceneObject[] {
+  if (state.replayMode) return objects
   const poses = snapshotLiveBallPoses()
   if (Object.keys(poses).length === 0) return objects
   return objects.map((o) => {
@@ -128,7 +130,13 @@ function logEvent(event: InteractionEvent): void {
 }
 
 function snap(label?: string): void {
-  recordSnapshot(state.timeline, nowMs(), state.objects, state.physics, label)
+  recordSnapshot(state.timeline, nowMs(), mergeLiveBallPoses(state.objects), state.physics, label)
+}
+
+function replayLocked(): boolean {
+  if (!state.replayMode) return false
+  setState({ statusMessage: 'Close replay to edit the scene.' })
+  return true
 }
 
 export const appStore = {
@@ -202,6 +210,7 @@ export const appStore = {
   },
 
   forgeFromStroke(points: Vec2[]): void {
+    if (replayLocked()) return
     const result = recognizeStroke(points)
     if (!result.primary) {
       setState({
@@ -233,6 +242,7 @@ export const appStore = {
   },
 
   createFromCandidate(candidate: ShapeCandidate, points?: Vec2[]): void {
+    if (replayLocked()) return
     if (state.objects.length >= MAX_OBJECTS) {
       setState({
         objectLimitHit: true,
@@ -353,6 +363,7 @@ export const appStore = {
   },
 
   addBall(): void {
+    if (replayLocked()) return
     if (state.objects.length >= MAX_OBJECTS) {
       setState({ objectLimitHit: true, statusMessage: `Object limit (${MAX_OBJECTS}) reached.` })
       return
@@ -376,6 +387,7 @@ export const appStore = {
   },
 
   dropBall(): void {
+    if (replayLocked()) return
     const staticBall = state.objects.find((o) => o.kind === 'ball' && !o.dynamic)
     if (staticBall) {
       pushHistory()
@@ -427,6 +439,7 @@ export const appStore = {
   },
 
   dropAllBalls(): void {
+    if (replayLocked()) return
     pushHistory()
     const objects = state.objects.map((o) =>
       o.kind === 'ball' ? ({ ...o, dynamic: true } satisfies BallObject) : o,
@@ -436,6 +449,7 @@ export const appStore = {
   },
 
   resetScene(): void {
+    if (replayLocked()) return
     pushHistory()
     logEvent({ type: 'SCENE_RESET', id: makeEventId(), t: nowMs() })
     clearAllLiveBallPoses()
@@ -451,6 +465,7 @@ export const appStore = {
   },
 
   undo(): void {
+    if (replayLocked()) return
     if (state.history.length === 0) {
       setState({ statusMessage: 'Nothing to undo.' })
       return
@@ -472,6 +487,7 @@ export const appStore = {
   },
 
   setPhysics(partial: Partial<PhysicsParams>): void {
+    if (replayLocked()) return
     const physics = { ...state.physics }
     for (const [key, min, max] of [['gravity', GRAVITY_MIN, GRAVITY_MAX], ['bounce', BOUNCE_MIN, BOUNCE_MAX], ['friction', FRICTION_MIN, FRICTION_MAX]] as const) {
       const value = partial[key]
@@ -490,6 +506,7 @@ export const appStore = {
   },
 
   togglePause(): void {
+    if (replayLocked()) return
     const paused = !state.physics.paused
     setState({
       physics: { ...state.physics, paused },
@@ -503,6 +520,7 @@ export const appStore = {
   },
 
   loadExample(objects: SceneObject[], name: string, physics?: PhysicsParams): void {
+    if (replayLocked()) return
     pushHistory()
     clearAllLiveBallPoses()
     const cloned = cloneObjects(objects)
@@ -529,6 +547,7 @@ export const appStore = {
   },
 
   replaceObjects(objects: SceneObject[], name: string, physics: PhysicsParams): void {
+    if (replayLocked()) return
     pushHistory()
     clearAllLiveBallPoses()
     const cloned = cloneObjects(objects)
@@ -580,12 +599,14 @@ export const appStore = {
   },
 
   setSceneName(name: string): void {
+    if (replayLocked()) return
     const trimmed = name.trim().slice(0, 80) || 'Untitled'
     setState({ sceneName: trimmed, statusMessage: `Scene renamed to "${trimmed}".` })
   },
 
   /** Soft-reset dynamics: freeze every ball without clearing the scene. */
   freezeBalls(): void {
+    if (replayLocked()) return
     const balls = state.objects.filter((o) => o.kind === 'ball' && o.dynamic)
     if (balls.length === 0) {
       setState({ statusMessage: 'No moving balls to freeze.' })
@@ -612,10 +633,30 @@ export const appStore = {
   },
 
   setReplayMode(on: boolean): void {
-    setState({ replayMode: on })
+    if (on === state.replayMode) return
+    if (on) {
+      liveScene = {
+        objects: cloneObjects(mergeLiveBallPoses(state.objects)),
+        physics: { ...state.physics },
+      }
+      setState({ replayMode: true })
+      return
+    }
+    const live = liveScene
+    liveScene = null
+    clearAllLiveBallPoses()
+    setState({
+      replayMode: false,
+      ...(live && {
+        objects: live.objects,
+        physics: live.physics,
+        statusMessage: 'Replay closed — live scene restored.',
+      }),
+    })
   },
 
   applySnapshotObjects(objects: SceneObject[], physics: PhysicsParams): void {
+    if (!state.replayMode) return
     clearAllLiveBallPoses()
     setState({ objects: cloneObjects(objects), physics: { ...physics } })
   },
@@ -623,6 +664,7 @@ export const appStore = {
   /** Test helper */
   _resetForTests(): void {
     clearAllLiveBallPoses()
+    liveScene = null
     state = createInitialState()
     state.tutorialDismissed = true
     emit()

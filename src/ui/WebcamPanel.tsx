@@ -85,14 +85,18 @@ export function WebcamPanel({ active, onClose }: Props) {
         appStore.setGestureLabel('Webcam · searching for hand')
         loop()
       } catch (err) {
-        releaseResources()
-        if (cancelled) return
-        const ce = err instanceof CameraError ? err : null
-        const msg = ce ? `${ce.message} ${cameraErrorHint(ce.code)}` : String(err)
-        setError(msg)
-        appStore.setStatus(msg)
-        appStore.setWebcamEnabled(false)
+        fail(err)
       }
+    }
+
+    function fail(err: unknown) {
+      releaseResources()
+      if (cancelled) return
+      const ce = err instanceof CameraError ? err : null
+      const msg = ce ? `${ce.message} ${cameraErrorHint(ce.code)}` : String(err)
+      setError(msg)
+      appStore.setWebcamEnabled(false)
+      appStore.setStatus(msg)
     }
 
     function finishActiveStroke(asCancel: boolean, reason: 'hand_lost' | 'mode_change' | 'user') {
@@ -114,6 +118,15 @@ export function WebcamPanel({ active, onClose }: Props) {
     }
 
     function loop() {
+      try {
+        step()
+        if (!cancelled) rafRef.current = requestAnimationFrame(loop)
+      } catch (err) {
+        fail(err)
+      }
+    }
+
+    function step() {
       const video = videoRef.current
       const tracker = trackerRef.current
       if (!video || !tracker || cancelled) return
@@ -178,8 +191,6 @@ export function WebcamPanel({ active, onClose }: Props) {
           }
         }
       }
-
-      rafRef.current = requestAnimationFrame(loop)
     }
 
     void start()

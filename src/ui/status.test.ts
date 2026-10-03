@@ -1,13 +1,22 @@
-import { describe, expect, it } from 'vitest'
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { cleanup, render, screen } from '@testing-library/react'
+import { appStore } from '../store/appStore'
+import { rampAndBall } from '../fixtures/scenes'
+import { StatusBar } from './StatusBar'
 
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`
-}
+beforeEach(() => appStore._resetForTests())
+afterEach(cleanup)
 
 describe('object count wording', () => {
   it('uses singular and plural correctly', () => {
-    expect(plural(1, 'ramp', 'ramps')).toBe('1 ramp')
-    expect(plural(2, 'ball', 'balls')).toBe('2 balls')
-    expect(plural(0, 'platform', 'platforms')).toBe('0 platforms')
+    appStore.loadExample(rampAndBall.objects.filter((o) => o.kind !== 'platform'), 'Counts')
+    appStore.addBall()
+    render(createElement(StatusBar))
+    const status = screen.getByRole('status').textContent
+    expect(status).toContain('1 ramp')
+    expect(status).toContain('2 balls')
+    expect(status).toContain('0 platforms')
   })
 })

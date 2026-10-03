@@ -9,20 +9,17 @@ import {
 } from '../replay/timeline'
 
 interface Props {
-  open: boolean
   onClose: () => void
 }
 
-export function ReplayPanel({ open, onClose }: Props) {
+export function ReplayPanel({ onClose }: Props) {
   const { timeline } = useAppState()
-  const [ctrl, setCtrl] = useState(() => createReplayController())
+  const [ctrl, setCtrl] = useState(() => ({ ...createReplayController(), index: -1 }))
 
   useEffect(() => {
-    appStore.setReplayMode(open)
+    appStore.setReplayMode(true)
     return () => appStore.setReplayMode(false)
-  }, [open])
-
-  if (!open) return null
+  }, [])
 
   const snap = timeline.snapshots[ctrl.index] ?? null
   const total = timeline.snapshots.length
@@ -44,7 +41,9 @@ export function ReplayPanel({ open, onClose }: Props) {
         <span className="muted">
           {total === 0
             ? 'No snapshots yet — forge something first.'
-            : `Snapshot ${ctrl.index + 1} / ${total} · ${timeline.events.length} events`}
+            : ctrl.index < 0
+              ? `Live scene paused · ${total} snapshots`
+              : `Snapshot ${ctrl.index + 1} / ${total} · ${timeline.events.length} events`}
         </span>
         <p className="muted small">
           Snapshot-based playback. Rapier is not bit-exact across devices — we restore recorded

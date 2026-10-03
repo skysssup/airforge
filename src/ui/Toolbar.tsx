@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import { EXAMPLE_SCENES } from '../fixtures/scenes'
@@ -12,8 +12,34 @@ interface Props {
   onOpenReplay: () => void
 }
 
+export function SceneNameInput() {
+  const { sceneName } = useAppState()
+  const [draft, setDraft] = useState<string | null>(null)
+
+  function commit() {
+    if (draft !== null && draft !== sceneName) appStore.setSceneName(draft)
+    setDraft(null)
+  }
+
+  return (
+    <input
+      id="airforge-scene-name"
+      className="muted scene-name scene-name-input"
+      value={draft ?? sceneName}
+      maxLength={80}
+      aria-label="Scene name"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+        if (e.key === 'Escape') setDraft(null)
+      }}
+    />
+  )
+}
+
 export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
-  const { physics, objects, webcamEnabled, objectLimitHit, sceneName } = useAppState()
+  const { physics, objects, webcamEnabled, objectLimitHit } = useAppState()
   const stats = sceneStats(objects)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -29,14 +55,7 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
         <div>
           <strong>AirForge</strong>
           <label className="sr-only" htmlFor="airforge-scene-name">Scene name</label>
-          <input
-            id="airforge-scene-name"
-            className="muted scene-name scene-name-input"
-            value={sceneName}
-            maxLength={80}
-            aria-label="Scene name"
-            onChange={(e) => appStore.setSceneName(e.target.value)}
-          />
+          <SceneNameInput />
         </div>
       </div>
 
