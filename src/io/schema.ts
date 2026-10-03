@@ -13,13 +13,11 @@ import {
   FRICTION_MIN,
   GRAVITY_MAX,
   GRAVITY_MIN,
-  GROUND_Y,
   MAX_OBJECT_SIZE,
   MAX_OBJECTS,
+  MAX_WORLD_COORDINATE,
   MIN_OBJECT_SIZE,
-  WORLD_HALF_HEIGHT,
-  WORLD_HALF_WIDTH,
-  ballMinY,
+  isWithinWorldBounds,
 } from '../physics/params'
 
 export const SCENE_FORMAT_VERSION = 1 as const
@@ -70,15 +68,6 @@ function isNum(v: unknown): v is number {
 
 function isPositiveSize(v: number): boolean {
   return v >= MIN_OBJECT_SIZE && v <= MAX_OBJECT_SIZE
-}
-
-/** Clamp a world-space point into the visible volume / above the ground. */
-export function clampWorldVec(v: SerializedVec3): SerializedVec3 {
-  return {
-    x: Math.max(-WORLD_HALF_WIDTH, Math.min(WORLD_HALF_WIDTH, v.x)),
-    y: Math.max(GROUND_Y, Math.min(WORLD_HALF_HEIGHT, v.y)),
-    z: Math.max(-1, Math.min(1, v.z)),
-  }
 }
 
 function isVec3(v: unknown): v is SerializedVec3 {
@@ -225,8 +214,11 @@ function parseObject(
     if (!isVec3(o.start) || !isVec3(o.end)) {
       return { ok: false, error: 'Ramp missing start/end.' }
     }
-    base.start = clampWorldVec(o.start)
-    base.end = clampWorldVec(o.end)
+    if (!isWithinWorldBounds(o.start) || !isWithinWorldBounds(o.end)) {
+      return { ok: false, error: `Object coordinates must be within ±${MAX_WORLD_COORDINATE} world units.` }
+    }
+    base.start = { ...o.start }
+    base.end = { ...o.end }
     const width = isNum(o.width) ? o.width : 0.28
     const thickness = isNum(o.thickness) ? o.thickness : 0.35
     if (!isPositiveSize(width) || !isPositiveSize(thickness)) {
@@ -236,23 +228,24 @@ function parseObject(
     base.thickness = thickness
   } else if (o.kind === 'ball') {
     if (!isVec3(o.position)) return { ok: false, error: 'Ball missing position.' }
+    if (!isWithinWorldBounds(o.position)) {
+      return { ok: false, error: `Object coordinates must be within ±${MAX_WORLD_COORDINATE} world units.` }
+    }
     const radius = isNum(o.radius) ? o.radius : 0.35
     if (!isPositiveSize(radius)) {
       return { ok: false, error: 'Ball radius must be positive and within limits.' }
     }
-    const clamped = clampWorldVec(o.position)
-    // Floor clamp uses ground collider top + radius, not ground center.
-    base.position = {
-      ...clamped,
-      y: Math.max(clamped.y, ballMinY(radius)),
-    }
+    base.position = { ...o.position }
     base.radius = radius
     base.dynamic = typeof o.dynamic === 'boolean' ? o.dynamic : false
   } else {
     if (!isVec3(o.center) || !isVec3(o.halfExtents)) {
       return { ok: false, error: 'Platform missing center/halfExtents.' }
     }
-    base.center = clampWorldVec(o.center)
+    if (!isWithinWorldBounds(o.center)) {
+      return { ok: false, error: `Object coordinates must be within ±${MAX_WORLD_COORDINATE} world units.` }
+    }
+    base.center = { ...o.center }
     const he = o.halfExtents
     if (!isPositiveSize(he.x) || !isPositiveSize(he.y) || !isPositiveSize(he.z)) {
       return { ok: false, error: 'Platform halfExtents must be positive and within limits.' }

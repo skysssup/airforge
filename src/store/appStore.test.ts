@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { appStore } from './appStore'
 import { cleanCircle, cleanDiagonalLine } from '../fixtures/strokes'
 import { rampAndBall } from '../fixtures/scenes'
-import { MAX_OBJECTS } from '../physics/params'
+import { MAX_OBJECTS, MAX_WORLD_COORDINATE } from '../physics/params'
 
 describe('reset / undo', () => {
   beforeEach(() => {
@@ -74,6 +74,16 @@ describe('mouse hero-demo path (logic-level)', () => {
 describe('object limit flag', () => {
   beforeEach(() => {
     appStore._resetForTests()
+  })
+
+  it('does not record an undo entry for an out-of-bounds drawing', () => {
+    appStore.setView({ worldHalfWidth: MAX_WORLD_COORDINATE * 2 })
+    appStore.createFromCandidate({
+      kind: 'line', quality: 1, metrics: {},
+      params: { x1: 0, y1: 100, x2: 100, y2: 200 },
+    })
+    expect(appStore.getState().objects).toHaveLength(0)
+    expect(appStore.getState().history).toHaveLength(0)
   })
 
   it('clears objectLimitHit after undo brings scene under the cap', () => {

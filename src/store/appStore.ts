@@ -253,12 +253,12 @@ export const appStore = {
       })
       return
     }
-    pushHistory()
     const obj = objectFromRecognition(candidate, state.view, false, state.objects)
     if (!obj) {
       setState({ statusMessage: 'Could not create object.', suggestion: null })
       return
     }
+    pushHistory()
     const objects = [...state.objects, obj]
     const kind = shapeToObjectKind(candidate.kind)
     logEvent({

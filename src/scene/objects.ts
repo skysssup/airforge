@@ -13,6 +13,8 @@ import {
   SPAWN_CLEARANCE,
   ballMinY,
   MAX_OBJECTS,
+  MAX_OBJECT_SIZE,
+  isWithinWorldBounds,
 } from '../physics/params'
 
 export interface SceneObjectBase {
@@ -78,6 +80,7 @@ export function objectFromRecognition(
     const p = candidate.params as LineParams
     const start = screenToWorld({ x: p.x1, y: p.y1 }, view, mirrored)
     const end = screenToWorld({ x: p.x2, y: p.y2 }, view, mirrored)
+    if (!isWithinWorldBounds(start) || !isWithinWorldBounds(end)) return null
     return {
       id,
       kind: 'ramp',
@@ -97,6 +100,7 @@ export function objectFromRecognition(
       BALL_RADIUS,
       existing,
     )
+    if (!isWithinWorldBounds(position)) return null
     return {
       id,
       kind: 'ball',
@@ -110,6 +114,7 @@ export function objectFromRecognition(
   // rectangle / square → platform (preserve tilt via rotationZ)
   const p = candidate.params as RectParams
   const worldCorners = p.corners.map((c) => screenToWorld(c, view, mirrored))
+  if (!worldCorners.every(isWithinWorldBounds)) return null
   const cx = worldCorners.reduce((s, c) => s + c.x, 0) / worldCorners.length
   const cy = worldCorners.reduce((s, c) => s + c.y, 0) / worldCorners.length
   // Longest edge defines the platform orientation (avoid flattening tilted rects).
@@ -143,6 +148,7 @@ export function objectFromRecognition(
   }
   const halfAlong = Math.max(maxU, 0.4)
   const halfThick = Math.max(Math.min(maxV, 0.35), 0.12)
+  if (halfAlong > MAX_OBJECT_SIZE) return null
   return {
     id,
     kind: 'platform',
@@ -161,6 +167,7 @@ export function createBallAt(
 ): BallObject | null {
   if (existing.length >= MAX_OBJECTS) return null
   const cleared = clearBallFromColliders(position, BALL_RADIUS, existing)
+  if (!isWithinWorldBounds(cleared)) return null
   return {
     id: makeObjectId('ball'),
     kind: 'ball',

@@ -2,10 +2,26 @@ import { describe, expect, it } from 'vitest'
 import { objectFromRecognition, createBallAt, topSurfaceY } from './objects'
 import { recognizeStroke } from '../shapes/recognize'
 import { cleanCircle, cleanDiagonalLine, cleanRectangle } from '../fixtures/strokes'
-import { BALL_RADIUS, SPAWN_CLEARANCE } from '../physics/params'
+import { BALL_RADIUS, MAX_WORLD_COORDINATE, SPAWN_CLEARANCE } from '../physics/params'
 import { DEFAULT_VIEW } from '../coords/transforms'
 
 describe('object creation from recognition', () => {
+  it('rejects drawn coordinates outside the import safety bounds', () => {
+    const view = { ...DEFAULT_VIEW, worldHalfWidth: MAX_WORLD_COORDINATE * 2 }
+    expect(objectFromRecognition({
+      kind: 'line', quality: 1, metrics: {},
+      params: { x1: 0, y1: 100, x2: 100, y2: 200 },
+    }, view)).toBeNull()
+    expect(createBallAt({ x: MAX_WORLD_COORDINATE + 1, y: 1, z: 0 })).toBeNull()
+  })
+
+  it('rejects platforms larger than the import size limit', () => {
+    expect(objectFromRecognition({
+      kind: 'rectangle', quality: 1, metrics: {},
+      params: { corners: [{ x: 0, y: 0 }, { x: 1280, y: 0 }, { x: 1280, y: 100 }, { x: 0, y: 100 }] },
+    }, { ...DEFAULT_VIEW, worldHalfWidth: 100 })).toBeNull()
+  })
+
   it('creates ramp from line', () => {
     const rec = recognizeStroke(cleanDiagonalLine())!
     const obj = objectFromRecognition(rec.primary!, DEFAULT_VIEW, false, [])

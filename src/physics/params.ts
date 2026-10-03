@@ -35,12 +35,14 @@ export const MESH_THICKNESS = 0.35
 /** Ball radius in world units. */
 export const BALL_RADIUS = 0.35
 
-/**
- * World region of the draw plane that is always visible (see coords/camera.ts);
- * also the bounds enforced on imported scenes. Matches a 16:9 viewport exactly.
- */
+/** World region always visible; other aspect ratios expose more of the draw plane. */
 export const WORLD_HALF_WIDTH = 8
 export const WORLD_HALF_HEIGHT = 4.5
+export const MAX_WORLD_COORDINATE = 10_000
+
+export function isWithinWorldBounds(position: { x: number; y: number; z: number }): boolean {
+  return [position.x, position.y, position.z].every(value => Number.isFinite(value) && Math.abs(value) <= MAX_WORLD_COORDINATE)
+}
 
 /** Reject imported sizes outside this band. */
 export const MIN_OBJECT_SIZE = 0.01
