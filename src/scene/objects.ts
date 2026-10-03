@@ -3,7 +3,7 @@
  * Geometry is derived from recognized shapes / user actions in world space.
  */
 
-import type { Vec2, Vec3, ObjectKind } from '../events/types'
+import type { Vec3, ObjectKind } from '../events/types'
 import type { CircleParams, LineParams, RectParams, ShapeCandidate } from '../shapes/recognize'
 import { shapeToObjectKind } from '../shapes/recognize'
 import { screenToWorld, type ViewBounds, DEFAULT_VIEW } from '../coords/transforms'
@@ -57,10 +57,6 @@ let _oid = 0
 export function makeObjectId(kind: ObjectKind): string {
   _oid += 1
   return `${kind}_${Date.now().toString(36)}_${_oid}`
-}
-
-export function resetObjectIdCounter(): void {
-  _oid = 0
 }
 
 /** Build a SceneObject from a recognition candidate + stroke in screen space. */
@@ -249,13 +245,4 @@ export function rampPose(ramp: RampObject): {
 
 export function cloneObjects(objects: SceneObject[]): SceneObject[] {
   return objects.map((o) => structuredClone(o))
-}
-
-/** Screen stroke → tentative preview points in world (for ink overlay). */
-export function strokeToWorld(
-  points: Vec2[],
-  view: ViewBounds,
-  mirrored = false,
-): Vec3[] {
-  return points.map((p) => screenToWorld(p, view, mirrored))
 }

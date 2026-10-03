@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
-import { Children, isValidElement, StrictMode, useEffect, useState, type ReactNode } from 'react'
+import { Children, isValidElement, useEffect, useState, type ReactNode } from 'react'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RAPIER from '@dimforge/rapier3d-compat'
@@ -65,7 +65,7 @@ it('recreates the physical world when snapshot positions equal stale render prop
   appStore.dropBall()
   const ball = appStore.getState().objects[0]!
   if (ball.kind !== 'ball') throw new Error('Expected a ball')
-  render(<StrictMode><Viewer /></StrictMode>)
+  render(<Viewer />)
   const firstBody = simulation.ball!
   for (let i = 0; i < 30; i++) simulation.world!.step()
   const livePosition = { ...firstBody.translation() }
@@ -75,6 +75,7 @@ it('recreates the physical world when snapshot positions equal stale render prop
 
   await user.click(screen.getByRole('button', { name: 'Open replay' }))
   expect(simulation.paused).toBe(true)
+  expect(appStore.getState().objects[0]).toBe(ball)
   await user.click(screen.getByRole('button', { name: 'Next' }))
   expect(simulation.ball).not.toBe(firstBody)
   expect({ ...simulation.ball!.translation() }).toEqual(ball.position)

@@ -22,7 +22,6 @@ import {
 
 export const SCENE_FORMAT_VERSION = 1 as const
 export const MAX_JSON_BYTES = 512_000 // 512 KB
-export const MAX_STROKE_EXPORT_POINTS = 2000
 
 export interface SerializedVec3 {
   x: number

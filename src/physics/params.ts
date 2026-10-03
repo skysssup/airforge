@@ -48,13 +48,8 @@ export function isWithinWorldBounds(position: { x: number; y: number; z: number 
 export const MIN_OBJECT_SIZE = 0.01
 export const MAX_OBJECT_SIZE = 20
 
-/**
- * Vertical spawn offset above a surface / default drop height.
- * Documented: balls are spawned at least BALL_RADIUS + SPAWN_CLEARANCE
- * above any platform/ramp AABB top, or at DEFAULT_DROP_Y if none.
- */
+/** Clearance above static collider bounds when placing a new ball. */
 export const SPAWN_CLEARANCE = 0.15
-export const DEFAULT_DROP_Y = 3.5
 
 export const MAX_OBJECTS = 40
 
@@ -65,12 +60,6 @@ export const MAX_OBJECTS = 40
 export const GROUND_Y = -4.2
 export const GROUND_HALF_HEIGHT = 0.2
 export const GROUND_TOP_Y = GROUND_Y + GROUND_HALF_HEIGHT
-
-export function ballSpawnY(surfaceTopY: number | null): number {
-  const floorClear = GROUND_TOP_Y + BALL_RADIUS + SPAWN_CLEARANCE
-  if (surfaceTopY == null) return Math.max(DEFAULT_DROP_Y, floorClear)
-  return Math.max(surfaceTopY + BALL_RADIUS + SPAWN_CLEARANCE, floorClear)
-}
 
 /** Minimum ball-center Y that clears the ground collider for a given radius. */
 export function ballMinY(radius: number): number {

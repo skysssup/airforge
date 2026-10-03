@@ -1,8 +1,3 @@
-/**
- * Central app state — kept outside a god App.tsx.
- * Plain React useSyncExternalStore-friendly store.
- */
-
 import type { Vec2 } from '../events/types'
 import type { SceneObject, BallObject } from '../scene/objects'
 import {
