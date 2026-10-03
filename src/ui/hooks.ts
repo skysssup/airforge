@@ -26,7 +26,6 @@ export function useMouseDrawing(enabled: boolean) {
       adapter.onEvent((ev) => {
         if (ev.type === 'STROKE_STARTED') {
           appStore.beginStroke(ev.source, ev.point)
-          // sync live stroke from adapter for smoothing consistency
         } else if (ev.type === 'POINT_ADDED') {
           appStore.setLiveStroke(
             (adapter.getCurrentPoints().length

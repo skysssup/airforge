@@ -2,9 +2,8 @@
  * Event timeline + state snapshots for replay.
  *
  * Honesty note: Rapier physics is not bit-exact across runs/devices.
- * Replay restores object snapshots at keyframes rather than re-simulating
- * continuous dynamics. Between snapshots, playback interpolates poses only
- * when recorded; otherwise it shows discrete scene states.
+ * Replay steps through recorded object snapshots; it neither re-simulates
+ * dynamics nor interpolates between snapshots, and velocities are not recorded.
  */
 
 import type { InteractionEvent } from '../events/types'
@@ -52,19 +51,12 @@ export function recordSnapshot(
   if (tl.snapshots.length > MAX_REPLAY_SNAPSHOTS) tl.snapshots.splice(0, tl.snapshots.length - MAX_REPLAY_SNAPSHOTS)
 }
 
-export function clearTimeline(tl: ReplayTimeline): void {
-  tl.events = []
-  tl.snapshots = []
-}
-
 export interface ReplayControllerState {
-  playing: boolean
   index: number
-  speed: number
 }
 
 export function createReplayController(): ReplayControllerState {
-  return { playing: false, index: 0, speed: 1 }
+  return { index: 0 }
 }
 
 /** Advance to snapshot index; clamp to bounds. */
@@ -92,6 +84,5 @@ export function restartReplay(
   tl: ReplayTimeline,
   state: ReplayControllerState,
 ): SceneSnapshot | null {
-  state.playing = false
   return seekSnapshot(tl, state, 0)
 }

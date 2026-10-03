@@ -46,6 +46,7 @@ export class MouseStrokeAdapter {
 
   detach(): void {
     if (!this.element) return
+    this.cancel('mode_change')
     this.element.removeEventListener('pointerdown', this.onDown)
     this.element.removeEventListener('pointermove', this.onMove)
     this.element.removeEventListener('pointerup', this.onUp)
@@ -125,7 +126,9 @@ export class MouseStrokeAdapter {
     })
   }
 
-  private onCancel = (): void => {
+  private onCancel = (): void => this.cancel('user')
+
+  private cancel(reason: StrokeCancelledEvent['reason']): void {
     if (!this.stroke) return
     cancelStroke(this.stroke)
     this.drawing = false
@@ -135,7 +138,7 @@ export class MouseStrokeAdapter {
       id: makeEventId(),
       t: nowMs(),
       source: 'mouse',
-      reason: 'user',
+      reason,
     })
   }
 

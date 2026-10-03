@@ -8,6 +8,7 @@ import { GestureHelp } from './ui/GestureHelp'
 import { WebcamPanel } from './ui/WebcamPanel'
 import { ReplayPanel } from './ui/ReplayPanel'
 import { StatusBar } from './ui/StatusBar'
+import { useGlobalShortcuts } from './ui/useGlobalShortcuts'
 import { useAppState } from './ui/hooks'
 import { appStore } from './store/appStore'
 import './styles/app.css'
@@ -25,37 +26,14 @@ export default function App() {
     }
   }, [webcamEnabled])
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-
-      if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault()
-        appStore.togglePause()
-      } else if (e.key === 'z' || e.key === 'Z') {
-        e.preventDefault()
-        appStore.undo()
-      } else if (e.key === 'r' || e.key === 'R') {
-        e.preventDefault()
-        appStore.resetScene()
-      } else if (e.key === 'd' || e.key === 'D') {
-        e.preventDefault()
-        appStore.dropBall()
-      } else if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault()
-        appStore.freezeBalls()
-      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault()
-        setHelpOpen((v) => !v)
-      } else if (e.key === 'Escape') {
-        setHelpOpen(false)
-        setReplayOpen(false)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  useGlobalShortcuts({
+    dialogOpen: helpOpen || !tutorialDismissed,
+    onToggleHelp: () => tutorialDismissed && setHelpOpen((v) => !v),
+    onEscape: () => {
+      setHelpOpen(false)
+      setReplayOpen(false)
+    },
+  })
 
   // Prefer reduced motion: tighten CSS transitions via class on <html>
   useEffect(() => {
@@ -88,7 +66,7 @@ export default function App() {
 
       {!tutorialDismissed && <Tutorial />}
       <GestureHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <ReplayPanel open={replayOpen} onClose={() => setReplayOpen(false)} />
+      {replayOpen && <ReplayPanel onClose={() => setReplayOpen(false)} />}
     </div>
   )
 }
