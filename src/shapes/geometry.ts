@@ -166,9 +166,6 @@ export function approxPolyDP(points: Vec2[], epsilon: number, closed: boolean): 
   }
   // ensure last endpoint included for open
   if (!closed) result.push(pts[pts.length - 1]!)
-  else if (result.length === 0 || result[result.length - 1] !== pts[pts.length - 1]) {
-    // RDP above already pushed starts; for closed we need all vertices
-  }
   return result
 }
 

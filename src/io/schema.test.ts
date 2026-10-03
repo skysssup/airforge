@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { exportSceneJson, importSceneJson } from './serialize'
 import {
-  clampWorldVec,
   validateSceneJson,
   MAX_JSON_BYTES,
   SCENE_FORMAT_VERSION,
@@ -10,9 +9,7 @@ import { rampAndBall } from '../fixtures/scenes'
 import {
   DEFAULT_PHYSICS,
   FRICTION_MAX,
-  WORLD_HALF_HEIGHT,
-  WORLD_HALF_WIDTH,
-  ballMinY,
+  MAX_WORLD_COORDINATE,
 } from '../physics/params'
 
 function scene(extra: Record<string, unknown> = {}) {
@@ -151,7 +148,7 @@ describe('export/import', () => {
     if (!r.ok) expect(r.error).toMatch(/width|thickness/i)
   })
 
-  it('clamps off-world ball position into visible bounds / above ground collider', () => {
+  it('preserves offscreen ball positions without moving them above the ground', () => {
     const r = validateSceneJson(
       JSON.stringify(
         scene({
@@ -170,9 +167,7 @@ describe('export/import', () => {
     expect(r.ok).toBe(true)
     if (!r.ok) return
     const ball = r.scene.objects[0]!
-    expect(ball.position!.x).toBe(WORLD_HALF_WIDTH)
-    expect(ball.position!.y).toBe(ballMinY(0.35))
-    expect(ball.position!.z).toBe(1)
+    expect(ball.position).toEqual({ x: 999, y: -999, z: 50 })
   })
 
   it('rejects duplicate object ids', () => {
@@ -202,10 +197,32 @@ describe('export/import', () => {
     if (!r.ok) expect(r.error).toMatch(/duplicate/i)
   })
 
-  it('clampWorldVec respects shared world constants', () => {
-    const c = clampWorldVec({ x: -100, y: WORLD_HALF_HEIGHT + 5, z: 0 })
-    expect(c.x).toBe(-WORLD_HALF_WIDTH)
-    expect(c.y).toBe(WORLD_HALF_HEIGHT)
+  it.each(['x', 'y', 'z'])('rejects excessive %s coordinates instead of clamping them', axis => {
+    const objects = [{
+      id: 'outside', kind: 'ball', createdAt: 0,
+      position: { x: 0, y: 0, z: 0, [axis]: MAX_WORLD_COORDINATE + 1 }, radius: 0.35,
+    }]
+    const result = validateSceneJson(JSON.stringify(scene({ objects })))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain(`±${MAX_WORLD_COORDINATE} world units`)
+  })
+
+  it.each([
+    { ...rampAndBall.objects[0], start: { x: -MAX_WORLD_COORDINATE - 1, y: 0, z: 0 } },
+    { ...rampAndBall.objects[0], end: { x: MAX_WORLD_COORDINATE + 1, y: 0, z: 0 } },
+    { ...rampAndBall.objects[2], center: { x: 0, y: MAX_WORLD_COORDINATE + 1, z: 0 } },
+  ])('rejects excessive coordinates in a $kind', object => {
+    const result = validateSceneJson(JSON.stringify(scene({ objects: [object] })))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain(`±${MAX_WORLD_COORDINATE} world units`)
+  })
+
+  it.each(['1e999', '-1e999', 'null'])('rejects nonfinite or nonnumeric coordinates: %s', value => {
+    const raw = JSON.stringify(scene({ objects: [{
+      id: 'invalid', kind: 'ball', createdAt: 0,
+      position: { x: 'COORDINATE', y: 0, z: 0 }, radius: 0.35,
+    }] })).replace('"COORDINATE"', value)
+    expect(validateSceneJson(raw).ok).toBe(false)
   })
 })
 

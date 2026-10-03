@@ -1,8 +1,3 @@
-/**
- * Central app state — kept outside a god App.tsx.
- * Plain React useSyncExternalStore-friendly store.
- */
-
 import type { Vec2 } from '../events/types'
 import type { SceneObject, BallObject } from '../scene/objects'
 import {
@@ -53,6 +48,7 @@ export interface AppState {
   objectLimitHit: boolean
   timeline: ReplayTimeline
   replayMode: boolean
+  restoreRevision: number
   statusMessage: string
   sceneName: string
 }
@@ -84,6 +80,7 @@ function createInitialState(): AppState {
     objectLimitHit: false,
     timeline: createTimeline(),
     replayMode: false,
+    restoreRevision: 0,
     statusMessage: 'Draw a diagonal to forge a ramp — or load Ramp & Ball.',
     sceneName: 'Untitled',
   }
@@ -251,12 +248,12 @@ export const appStore = {
       })
       return
     }
-    pushHistory()
     const obj = objectFromRecognition(candidate, state.view, false, state.objects)
     if (!obj) {
       setState({ statusMessage: 'Could not create object.', suggestion: null })
       return
     }
+    pushHistory()
     const objects = [...state.objects, obj]
     const kind = shapeToObjectKind(candidate.kind)
     logEvent({
@@ -650,6 +647,7 @@ export const appStore = {
       ...(live && {
         objects: live.objects,
         physics: live.physics,
+        restoreRevision: state.restoreRevision + 1,
         statusMessage: 'Replay closed — live scene restored.',
       }),
     })
@@ -658,7 +656,11 @@ export const appStore = {
   applySnapshotObjects(objects: SceneObject[], physics: PhysicsParams): void {
     if (!state.replayMode) return
     clearAllLiveBallPoses()
-    setState({ objects: cloneObjects(objects), physics: { ...physics } })
+    setState({
+      objects: cloneObjects(objects),
+      physics: { ...physics },
+      restoreRevision: state.restoreRevision + 1,
+    })
   },
 
   /** Test helper */

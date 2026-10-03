@@ -3,8 +3,6 @@
 import type { SceneObject } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
 import { DEFAULT_PHYSICS } from '../physics/params'
-import { serializeScene, type SerializedObject } from '../io/schema'
-import { objectsToSerialized } from '../io/serialize'
 
 export interface ExampleScene {
   id: string
@@ -111,7 +109,7 @@ export const flatTable: ExampleScene = {
 export const stairsDrop: ExampleScene = {
   id: 'stairs-drop',
   name: 'Stairs Drop',
-  description: 'Stepped platforms for cascading ball drops.',
+  description: 'Four flat steps with a ball that settles on the top step.',
   physics: { ...DEFAULT_PHYSICS, bounce: 0.35, friction: 0.55 },
   objects: [
     {
@@ -158,8 +156,3 @@ export const stairsDrop: ExampleScene = {
 }
 
 export const EXAMPLE_SCENES: ExampleScene[] = [rampAndBall, doubleRamp, flatTable, stairsDrop]
-
-export function exampleToJson(scene: ExampleScene): string {
-  const serialized: SerializedObject[] = objectsToSerialized(scene.objects)
-  return serializeScene(scene.name, serialized, scene.physics)
-}

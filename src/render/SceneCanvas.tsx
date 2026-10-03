@@ -19,7 +19,7 @@ function CameraRig() {
 }
 
 export function SceneCanvas() {
-  const { objects, physics, liveStroke, view, replayMode } = useAppState()
+  const { objects, physics, liveStroke, view, replayMode, restoreRevision } = useAppState()
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export function SceneCanvas() {
         <hemisphereLight args={['#1e293b', '#0b1020', 0.4]} />
 
         <Suspense fallback={null}>
-          <PhysicsWorld objects={objects} physics={{ ...physics, paused: physics.paused || replayMode }} />
+          <PhysicsWorld key={restoreRevision} objects={objects} physics={{ ...physics, paused: physics.paused || replayMode }} />
           <InkOverlay points={liveStroke} view={view} />
         </Suspense>
 
