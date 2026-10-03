@@ -53,6 +53,7 @@ export interface AppState {
   objectLimitHit: boolean
   timeline: ReplayTimeline
   replayMode: boolean
+  restoreRevision: number
   statusMessage: string
   sceneName: string
 }
@@ -84,6 +85,7 @@ function createInitialState(): AppState {
     objectLimitHit: false,
     timeline: createTimeline(),
     replayMode: false,
+    restoreRevision: 0,
     statusMessage: 'Draw a diagonal to forge a ramp — or load Ramp & Ball.',
     sceneName: 'Untitled',
   }
@@ -650,6 +652,7 @@ export const appStore = {
       ...(live && {
         objects: live.objects,
         physics: live.physics,
+        restoreRevision: state.restoreRevision + 1,
         statusMessage: 'Replay closed — live scene restored.',
       }),
     })
@@ -658,7 +661,11 @@ export const appStore = {
   applySnapshotObjects(objects: SceneObject[], physics: PhysicsParams): void {
     if (!state.replayMode) return
     clearAllLiveBallPoses()
-    setState({ objects: cloneObjects(objects), physics: { ...physics } })
+    setState({
+      objects: cloneObjects(objects),
+      physics: { ...physics },
+      restoreRevision: state.restoreRevision + 1,
+    })
   },
 
   /** Test helper */
