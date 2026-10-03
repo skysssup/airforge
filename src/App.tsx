@@ -17,6 +17,7 @@ export default function App() {
   const { tutorialDismissed, webcamEnabled, replayMode } = useAppState()
   const [helpOpen, setHelpOpen] = useState(false)
   const [replayOpen, setReplayOpen] = useState(false)
+  const dialogOpen = helpOpen || !tutorialDismissed
 
   const toggleWebcam = useCallback(() => {
     if (webcamEnabled) {
@@ -27,7 +28,7 @@ export default function App() {
   }, [webcamEnabled])
 
   useGlobalShortcuts({
-    dialogOpen: helpOpen || !tutorialDismissed,
+    dialogOpen,
     onToggleHelp: () => tutorialDismissed && setHelpOpen((v) => !v),
     onEscape: () => {
       setHelpOpen(false)
@@ -35,7 +36,6 @@ export default function App() {
     },
   })
 
-  // Prefer reduced motion: tighten CSS transitions via class on <html>
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     const apply = () => document.documentElement.classList.toggle('reduced-motion', mq.matches)
@@ -45,28 +45,30 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app-shell">
-      <Toolbar
-        onToggleWebcam={toggleWebcam}
-        onOpenHelp={() => setHelpOpen(true)}
-        onOpenReplay={() => setReplayOpen(true)}
-      />
-
-      <main className="stage">
-        <SceneCanvas />
-        <DrawingOverlay enabled={!replayMode} />
-        <SuggestionPicker />
-        <WebcamPanel
-          active={webcamEnabled && !replayMode}
-          onClose={() => appStore.setWebcamEnabled(false)}
+    <>
+      <div className="app-shell" inert={dialogOpen} aria-hidden={dialogOpen || undefined}>
+        <Toolbar
+          onToggleWebcam={toggleWebcam}
+          onOpenHelp={() => setHelpOpen(true)}
+          onOpenReplay={() => setReplayOpen(true)}
         />
-      </main>
 
-      <StatusBar />
+        <main className="stage">
+          <SceneCanvas />
+          <DrawingOverlay enabled={!replayMode && !dialogOpen} />
+          <SuggestionPicker />
+          <WebcamPanel
+            active={webcamEnabled && !replayMode && !dialogOpen}
+            onClose={() => appStore.setWebcamEnabled(false)}
+          />
+        </main>
+
+        <StatusBar />
+        {replayOpen && <ReplayPanel onClose={() => setReplayOpen(false)} />}
+      </div>
 
       {!tutorialDismissed && <Tutorial />}
       <GestureHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
-      {replayOpen && <ReplayPanel onClose={() => setReplayOpen(false)} />}
-    </div>
+    </>
   )
 }

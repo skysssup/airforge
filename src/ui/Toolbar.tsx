@@ -3,7 +3,7 @@ import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import { EXAMPLE_SCENES } from '../fixtures/scenes'
 import { exportSceneJson, importSceneJson, sceneStats } from '../io/serialize'
-import { FRICTION_MAX, FRICTION_MIN, MAX_OBJECTS } from '../physics/params'
+import { FRICTION_MAX, FRICTION_MIN, GRAVITY_MAX, GRAVITY_MIN, MAX_OBJECTS } from '../physics/params'
 import { MAX_JSON_BYTES } from '../io/schema'
 
 interface Props {
@@ -101,8 +101,8 @@ export function Toolbar({ onToggleWebcam, onOpenHelp, onOpenReplay }: Props) {
           Gravity
           <input
             type="range"
-            min={0}
-            max={25}
+            min={GRAVITY_MIN}
+            max={GRAVITY_MAX}
             step={0.1}
             value={physics.gravity}
             onChange={(e) => appStore.setPhysics({ gravity: Number(e.target.value) })}

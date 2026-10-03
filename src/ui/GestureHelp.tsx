@@ -6,8 +6,7 @@ interface Props {
 export function GestureHelp({ open, onClose }: Props) {
   if (!open) return null
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="help-title">
-      <div className="modal">
+    <Dialog labelledBy="help-title">
         <h2 id="help-title">Gestures &amp; calibration</h2>
         <div className="help-grid">
           <div>
@@ -43,6 +42,9 @@ export function GestureHelp({ open, onClose }: Props) {
                 <kbd>D</kbd> Drop ball
               </li>
               <li>
+                <kbd>F</kbd> Freeze moving balls
+              </li>
+              <li>
                 <kbd>Z</kbd> Undo
               </li>
               <li>
@@ -54,6 +56,9 @@ export function GestureHelp({ open, onClose }: Props) {
               <li>
                 <kbd>?</kbd> This help
               </li>
+              <li>
+                <kbd>Esc</kbd> Close help / replay
+              </li>
             </ul>
           </div>
         </div>
@@ -62,7 +67,7 @@ export function GestureHelp({ open, onClose }: Props) {
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
+import { Dialog } from './Dialog'

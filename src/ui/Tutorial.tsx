@@ -1,9 +1,9 @@
 import { appStore } from '../store/appStore'
+import { Dialog } from './Dialog'
 
 export function Tutorial() {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
-      <div className="modal tutorial">
+    <Dialog labelledBy="tutorial-title" className="tutorial">
         <h2 id="tutorial-title">Welcome to AirForge</h2>
         <p className="lede">
           Draw shapes in the air — or with a mouse — and forge them into Rapier physics bodies.
@@ -41,7 +41,6 @@ export function Tutorial() {
             Load Ramp &amp; Ball demo
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
