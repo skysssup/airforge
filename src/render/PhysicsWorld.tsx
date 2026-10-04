@@ -7,6 +7,7 @@ import type { SceneObject, BallObject, CurveObject } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
 import { BALL_DAMPING, BOUNDARY, TIME_STEP, boxFor, capsulesFor, type Box } from '../physics/world'
 import { clearLiveBallPose, liveBallMotion, setLiveBallMotion, setLiveBallPose } from '../physics/livePoses'
+import { followedBall } from '../physics/motion'
 import type { ScenePalette } from './palette'
 import { TrailRibbon } from './trail'
 import { BALL_SHADOW_SPAN, SHADOW_OFFSET, SHADOW_Z, ballShadowTexture } from './shadows'
@@ -38,7 +39,7 @@ interface Props {
   objects: SceneObject[]
   physics: PhysicsParams
   selectedId: string | null
-  /** Motion marks on: dots behind moving balls and a velocity arrow on the selected one. */
+  /** Motion marks on: dots behind moving balls and a velocity arrow on the ball the readout follows. */
   motion: boolean
   palette: ScenePalette
   /** World units per CSS pixel on the drawing plane, for hairlines that stay crisp at any size. */
@@ -47,6 +48,7 @@ interface Props {
 
 /** Rapier world for the scene; physics/world.ts describes the same layout for headless tests. */
 export function PhysicsWorld({ objects, physics, selectedId, motion, palette, pixel }: Props) {
+  const followed = motion ? followedBall(objects, selectedId)?.id : undefined
   return (
     <Physics gravity={[0, -physics.gravity, 0]} timeStep={TIME_STEP} paused={physics.paused}>
       {BOUNDARY.map((box, i) => (
@@ -62,7 +64,7 @@ export function PhysicsWorld({ objects, physics, selectedId, motion, palette, pi
       {objects.map((o) => {
         const selected = o.id === selectedId
         if (o.kind === 'ball') {
-          return <BallBody key={o.id} ball={o} physics={physics} palette={palette} pixel={pixel} selected={selected} motion={motion} />
+          return <BallBody key={o.id} ball={o} physics={physics} palette={palette} pixel={pixel} selected={selected} motion={motion} followed={o.id === followed} />
         }
         if (o.kind === 'curve') {
           return <CurveBody key={o.id} curve={o} physics={physics} palette={palette} pixel={pixel} selected={selected} />
@@ -218,7 +220,7 @@ function Ring({ inner, width, z, color, order = 0 }: { inner: number; width: num
   )
 }
 
-function BallBody({ ball, physics, palette, pixel, selected, motion }: BodyProps & { ball: BallObject; motion: boolean }) {
+function BallBody({ ball, physics, palette, pixel, selected, motion, followed }: BodyProps & { ball: BallObject; motion: boolean; followed: boolean }) {
   const bodyRef = useRef<RapierRigidBody>(null)
   const followRef = useRef<Group>(null)
   const dotsRef = useRef<InstancedMesh>(null)
@@ -303,7 +305,7 @@ function BallBody({ ball, physics, palette, pixel, selected, motion }: BodyProps
         <>
           <group ref={followRef} position={[position.x, position.y, 0]}>
             {outline}
-            {motion && selected && <VelocityArrow ballId={ball.id} pixel={pixel} color={palette.ink} />}
+            {followed && <VelocityArrow ballId={ball.id} pixel={pixel} color={palette.ink} />}
             <mesh position={[SHADOW_OFFSET.x, SHADOW_OFFSET.y, SHADOW_Z]} scale={r * BALL_SHADOW_SPAN * 2} renderOrder={-1}>
               <planeGeometry />
               <meshBasicMaterial map={ballShadowTexture()} color="#000000" transparent opacity={palette.shadowOpacity} depthWrite={false} toneMapped={false} />

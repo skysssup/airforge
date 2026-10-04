@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.0 (2026-10-04)
+
+Curves, motion marks, scene links, and shape editing. A scene without curves is still saved as format version 1, so AirForge 1.x opens it. A scene with a curve is saved as version 2, which only 2.0 opens.
+
+### Added
+
+- Curves. A smooth stroke that bends clearly away from a straight line, such as an arc, a dip, or a wave, becomes a solid curved track. The picker for unclear strokes offers **Curve**, and the World panel counts curves.
+- Two examples built on curves. In Half-Pipe a ball swings in a curved bowl, about 2.5 times slower at Moon gravity. In Curve Race a ball on a curve beats a ball on a straight ramp with the same drop.
+- Motion marks (**Motion**, `M`). Moving balls leave a dot every 0.1 s of simulated time. One ball gets an arrow along its velocity and a panel with its time since release, speed, height above the floor, and highest point. AirForge remembers whether they are on.
+- Editing. Drag the selected shape to move it (`Shift` snaps it to a half-unit grid), nudge it with the arrow keys, turn it with `[` and `]` or the buttons beside it, and copy it with `Ctrl+D` or `⌘D`. Each is one undo step, and a ball moved into a shape is lifted just clear of it.
+- **Copy link** copies a link that carries the whole scene in its `#scene=` part, compressed. Opening the link checks the scene like a file, and a damaged link leaves the current scene alone.
+- Tests for curve recognition and smoothing, version 2 files, motion readings, and editing; headless checks of what the two new examples do; browser tests for drawing a curve, motion marks, editing, and links.
+
+### Changed
+
+- Scene format version 2 adds curves. AirForge 2.0 opens both versions.
+- Physics steps at 1/120 s instead of 1/60 s, so a fast ball cannot wedge itself into a tight bend. Every example still does what its notes say; the headless tests check each one.
+- A stroke is checked for a curve before a line. Strokes that bend too much to be a line, which used to open the picker, now become curves. Nearly straight strokes are still ramps.
+- The empty sheet shows a fourth stroke, curve to track. The welcome dialog, help, and World panel mention curves and the new controls.
+
 ## 1.2.0 (2026-10-04)
 
 A redesign of the interface and of how the scene is drawn. Scene files (format version 1) and the physics are unchanged.
