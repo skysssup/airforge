@@ -127,6 +127,21 @@ it('shows Pause as a toggle', async () => {
   expect(pause.getAttribute('aria-pressed')).toBe('true')
 })
 
+it('turns motion marks on and off from the Simulation toolbar and remembers the choice', async () => {
+  const user = userEvent.setup()
+  appStore._resetForTests({ motion: false })
+  renderControls()
+  const motion = button('Motion')
+  expect(motion.getAttribute('aria-pressed')).toBe('false')
+  await user.click(motion)
+  expect(motion.getAttribute('aria-pressed')).toBe('true')
+  expect(localStorage.getItem('airforge.motion')).toBe('1')
+  expect(appStore.getState().statusMessage).toMatch(/^Motion marks on/)
+  await user.click(motion)
+  expect(appStore.getState().motion).toBe(false)
+  expect(localStorage.getItem('airforge.motion')).toBe('0')
+})
+
 it('switches the theme and remembers the choice', async () => {
   const user = userEvent.setup()
   appStore._resetForTests({ theme: 'light' })

@@ -10,6 +10,7 @@ import { DrawingOverlay } from './ui/DrawingOverlay'
 import { Tutorial } from './ui/Tutorial'
 import { PendingStrokePicker } from './ui/PendingStrokePicker'
 import { SelectionBar } from './ui/SelectionBar'
+import { MotionReadout } from './ui/MotionReadout'
 import { ExampleNotes } from './ui/ExampleNotes'
 import { HelpDialog } from './ui/HelpDialog'
 import { WebcamPanel } from './ui/WebcamPanel'
@@ -62,6 +63,7 @@ export default function App() {
           <EmptyState />
           <DrawingOverlay enabled={!dialogOpen} />
           <SelectionBar />
+          <MotionReadout />
           <PendingStrokePicker />
           <WebcamPanel active={webcamEnabled && !dialogOpen} onClose={() => appStore.setWebcamEnabled(false)} />
         </main>

@@ -55,6 +55,8 @@ export interface AppState {
   sceneRevision: number
   tutorialDismissed: boolean
   theme: Theme
+  /** Motion marks: a dot every STROBE_INTERVAL seconds behind moving balls, plus a readout and velocity arrow. */
+  motion: boolean
   webcamEnabled: boolean
   gestureLabel: string
   statusMessage: string
@@ -62,6 +64,7 @@ export interface AppState {
 
 const TUTORIAL_KEY = 'airforge.tutorialDismissed'
 const THEME_KEY = 'airforge.theme'
+const MOTION_KEY = 'airforge.motion'
 const MAX_HISTORY = 50
 /** Strokes whose extent stays within this many pixels are clicks, not drawings. */
 const TAP_SLOP = 6
@@ -78,6 +81,14 @@ const COPY_OFFSET = { x: 0.6, y: -0.6 }
 function loadTutorialDismissed(): boolean {
   try {
     return localStorage.getItem(TUTORIAL_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function loadMotion(): boolean {
+  try {
+    return localStorage.getItem(MOTION_KEY) === '1'
   } catch {
     return false
   }
@@ -113,6 +124,7 @@ function createInitialState(): AppState {
     sceneRevision: 0,
     tutorialDismissed: loadTutorialDismissed(),
     theme: loadTheme(),
+    motion: loadMotion(),
     webcamEnabled: false,
     gestureLabel: 'Mouse',
     statusMessage: 'Drag on the sheet to draw a ramp, ball, or platform, or open an example.',
@@ -568,6 +580,22 @@ export const appStore = {
       // Without storage the choice lasts for this visit only.
     }
     setState({ theme })
+  },
+
+  /** Turn motion marks on or off and remember the choice. */
+  toggleMotion(): void {
+    const motion = !state.motion
+    try {
+      localStorage.setItem(MOTION_KEY, motion ? '1' : '0')
+    } catch {
+      // Without storage the choice lasts for this visit only.
+    }
+    setState({
+      motion,
+      statusMessage: motion
+        ? 'Motion marks on: moving balls leave a dot every 0.1 s. Select a ball for its speed and height.'
+        : 'Motion marks off.',
+    })
   },
 
   /** Follow the operating system unless the user picked a theme. */

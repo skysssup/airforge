@@ -138,6 +138,25 @@ test('draws a curved track that a dropped ball rolls along', async ({ page }) =>
   expect(ball.position.y).toBeGreaterThan(lowest)
 })
 
+test('motion marks read the moving ball and stay on after a reload', async ({ page }) => {
+  await open(page, '?example=moon-jump')
+  await page.keyboard.press('m')
+  await expect(status(page)).toHaveText(/^Motion marks on/)
+  const readout = page.getByRole('region', { name: 'Motion' })
+  await expect(readout).toContainText('Select a ball to read its time, speed, and height.')
+  await page.keyboard.press('d')
+  await page.waitForTimeout(2000)
+  const [time, speed, height, highest] = (await readout.locator('.readings dd').allTextContents()).map(parseFloat)
+  expect(time).toBeGreaterThan(1)
+  expect(speed).toBeGreaterThan(0.3)
+  expect(height).toBeGreaterThan(0)
+  expect(highest).toBeGreaterThanOrEqual(height)
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Motion' })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('m')
+  await expect(readout).toBeHidden()
+})
+
 test('moves a selected shape by dragging, turns and copies it from the bar beside it, and undoes each step', async ({ page }) => {
   await open(page)
   const { at } = await drawingArea(page)

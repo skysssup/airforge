@@ -79,6 +79,7 @@ export function SceneCanvas() {
   const objects = useAppState((s) => s.objects)
   const physics = useAppState((s) => s.physics)
   const selectedId = useAppState((s) => s.selectedId)
+  const motion = useAppState((s) => s.motion)
   const sceneRevision = useAppState((s) => s.sceneRevision)
   const theme = useAppState((s) => s.theme)
   const view = useAppState((s) => s.view)
@@ -111,7 +112,7 @@ export function SceneCanvas() {
           <StudioEnvironment />
           <Lights palette={palette} />
           <Suspense fallback={null}>
-            <PhysicsWorld key={sceneRevision} objects={objects} physics={physics} selectedId={selectedId} palette={palette} pixel={pixel} />
+            <PhysicsWorld key={sceneRevision} objects={objects} physics={physics} selectedId={selectedId} motion={motion} palette={palette} pixel={pixel} />
           </Suspense>
         </Canvas>
       </SceneErrorBoundary>

@@ -41,8 +41,9 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('global shortcuts', () => {
-  it('runs the simulation keys: D drops, R restarts, F freezes, Space pauses', async () => {
+  it('runs the simulation keys: D drops, R restarts, F freezes, Space pauses, M shows motion', async () => {
     const user = userEvent.setup()
+    appStore._resetForTests({ motion: false })
     appStore.loadScene(loadExampleScene(EXAMPLES[0]!), { message: 'opened' })
     render(<Harness />)
     await user.keyboard('d')
@@ -53,6 +54,8 @@ describe('global shortcuts', () => {
     expect(state().objects.some((o) => o.kind === 'ball' && o.releasedFrom)).toBe(false)
     await user.keyboard(' ')
     expect(state().physics.paused).toBe(true)
+    await user.keyboard('m')
+    expect(state().motion).toBe(true)
   })
 
   it('undoes with Z, Ctrl+Z, or Cmd+Z and redoes with Shift+Z or Ctrl+Shift+Z', async () => {

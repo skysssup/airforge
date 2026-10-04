@@ -920,6 +920,50 @@ kbd {
   transform: translateX(-50%);
 }
 
+/* ── motion readout ─────────────────────────────────────── */
+.motion-readout {
+  position: absolute;
+  top: var(--gap);
+  right: var(--gap);
+  z-index: 22;
+  width: 300px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+
+/* Below the webcam bar, which takes the same corner. */
+.motion-readout.below-webcam {
+  top: calc(var(--gap) + 52px);
+}
+
+.readings {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--line-strong);
+}
+
+.readings div {
+  display: flex;
+  flex-direction: column-reverse;
+  padding: 7px 10px 8px;
+}
+
+.readings div + div {
+  border-left: 1px solid var(--line-strong);
+}
+
+.readings dt {
+  color: var(--muted);
+}
+
+.readings dd {
+  margin: 0;
+  font: 400 13px/18px var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .selection-bar > .btn.square {
   width: 34px;
 }

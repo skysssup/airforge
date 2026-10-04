@@ -20,6 +20,7 @@ const LETTER_ACTIONS: Record<string, () => void> = {
   d: () => appStore.drop(),
   r: () => appStore.restart(),
   f: () => appStore.freezeBalls(),
+  m: () => appStore.toggleMotion(),
 }
 
 export function useGlobalShortcuts({ dialogOpen, onToggleHelp, onEscape }: Handlers): void {

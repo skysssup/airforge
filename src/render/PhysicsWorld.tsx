@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { extend, useFrame, type ThreeElement } from '@react-three/fiber'
-import { Physics, RigidBody, CuboidCollider, BallCollider, CapsuleCollider, type RapierRigidBody } from '@react-three/rapier'
-import { BufferGeometry, CatmullRomCurve3, Float32BufferAttribute, Shape, TubeGeometry, Vector3, type Group } from 'three'
+import { Physics, RigidBody, CuboidCollider, BallCollider, CapsuleCollider, useAfterPhysicsStep, type RapierRigidBody } from '@react-three/rapier'
+import { BufferGeometry, CatmullRomCurve3, Float32BufferAttribute, Matrix4, Shape, TubeGeometry, Vector3, type Group, type InstancedMesh, type Mesh } from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { SceneObject, BallObject, CurveObject } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
 import { BALL_DAMPING, BOUNDARY, TIME_STEP, boxFor, capsulesFor, type Box } from '../physics/world'
-import { clearLiveBallPose, setLiveBallPose } from '../physics/livePoses'
+import { clearLiveBallPose, liveBallMotion, setLiveBallMotion, setLiveBallPose } from '../physics/livePoses'
 import type { ScenePalette } from './palette'
 import { TrailRibbon } from './trail'
 import { BALL_SHADOW_SPAN, SHADOW_OFFSET, SHADOW_Z, ballShadowTexture } from './shadows'
@@ -24,18 +24,29 @@ const OUTLINE_GAP = 4
 const OUTLINE_WIDTH = 1.5
 /** Edge radius of ramps and platforms; the colliders stay sharp-edged boxes. */
 const EDGE_RADIUS = 0.07
+/** Motion marks: a dot every STROBE_STEPS physics steps (0.1 s), up to a minute of them per ball. */
+const STROBE_STEPS = Math.round(0.1 / TIME_STEP)
+const MAX_STROBE_DOTS = 600
+/** Dot radius, arrow shaft width, and arrowhead length in CSS pixels; the arrow spans ARROW_SECONDS of travel. */
+const DOT_RADIUS = 2.5
+const ARROW_WIDTH = 2
+const ARROW_HEAD = 10
+const ARROW_SECONDS = 0.4
+const dotMatrix = new Matrix4()
 
 interface Props {
   objects: SceneObject[]
   physics: PhysicsParams
   selectedId: string | null
+  /** Motion marks on: dots behind moving balls and a velocity arrow on the selected one. */
+  motion: boolean
   palette: ScenePalette
   /** World units per CSS pixel on the drawing plane, for hairlines that stay crisp at any size. */
   pixel: number
 }
 
 /** Rapier world for the scene; physics/world.ts describes the same layout for headless tests. */
-export function PhysicsWorld({ objects, physics, selectedId, palette, pixel }: Props) {
+export function PhysicsWorld({ objects, physics, selectedId, motion, palette, pixel }: Props) {
   return (
     <Physics gravity={[0, -physics.gravity, 0]} timeStep={TIME_STEP} paused={physics.paused}>
       {BOUNDARY.map((box, i) => (
@@ -51,7 +62,7 @@ export function PhysicsWorld({ objects, physics, selectedId, palette, pixel }: P
       {objects.map((o) => {
         const selected = o.id === selectedId
         if (o.kind === 'ball') {
-          return <BallBody key={o.id} ball={o} physics={physics} palette={palette} pixel={pixel} selected={selected} />
+          return <BallBody key={o.id} ball={o} physics={physics} palette={palette} pixel={pixel} selected={selected} motion={motion} />
         }
         if (o.kind === 'curve') {
           return <CurveBody key={o.id} curve={o} physics={physics} palette={palette} pixel={pixel} selected={selected} />
@@ -207,12 +218,39 @@ function Ring({ inner, width, z, color, order = 0 }: { inner: number; width: num
   )
 }
 
-function BallBody({ ball, physics, palette, pixel, selected }: BodyProps & { ball: BallObject }) {
+function BallBody({ ball, physics, palette, pixel, selected, motion }: BodyProps & { ball: BallObject; motion: boolean }) {
   const bodyRef = useRef<RapierRigidBody>(null)
   const followRef = useRef<Group>(null)
+  const dotsRef = useRef<InstancedMesh>(null)
   const { radius: r, position } = ball
   // A new trail for each run: Drop and Restart remount the body with `dynamic` flipped.
   const trail = useMemo(() => (ball.dynamic ? new TrailRibbon() : null), [ball.dynamic])
+  // Steps and highest point of the current run; a new trail means Drop or Restart began a new one.
+  const run = useRef<{ trail: TrailRibbon | null; steps: number; highest: number }>({ trail: null, steps: 0, highest: 0 })
+
+  const layDot = (x: number, y: number) => {
+    const dots = dotsRef.current
+    if (!dots || dots.count >= MAX_STROBE_DOTS) return
+    dots.setMatrixAt(dots.count, dotMatrix.makeScale(DOT_RADIUS * pixel, DOT_RADIUS * pixel, 1).setPosition(x, y, -0.01))
+    dots.count += 1
+    dots.instanceMatrix.needsUpdate = true
+  }
+
+  useAfterPhysicsStep(() => {
+    const body = bodyRef.current
+    if (!body || !trail) return
+    if (run.current.trail !== trail) {
+      run.current = { trail, steps: 0, highest: position.y }
+      if (motion) layDot(position.x, position.y)
+    }
+    const p = body.translation()
+    const v = body.linvel()
+    const current = run.current
+    current.steps += 1
+    current.highest = Math.max(current.highest, p.y)
+    setLiveBallMotion(ball.id, { velocity: { x: v.x, y: v.y, z: 0 }, seconds: current.steps * TIME_STEP, highest: current.highest })
+    if (motion && current.steps % STROBE_STEPS === 0) layDot(p.x, p.y)
+  })
 
   useEffect(() => () => clearLiveBallPose(ball.id), [ball.id])
   useEffect(() => () => trail?.dispose(), [trail])
@@ -265,6 +303,7 @@ function BallBody({ ball, physics, palette, pixel, selected }: BodyProps & { bal
         <>
           <group ref={followRef} position={[position.x, position.y, 0]}>
             {outline}
+            {motion && selected && <VelocityArrow ballId={ball.id} pixel={pixel} color={palette.ink} />}
             <mesh position={[SHADOW_OFFSET.x, SHADOW_OFFSET.y, SHADOW_Z]} scale={r * BALL_SHADOW_SPAN * 2} renderOrder={-1}>
               <planeGeometry />
               <meshBasicMaterial map={ballShadowTexture()} color="#000000" transparent opacity={palette.shadowOpacity} depthWrite={false} toneMapped={false} />
@@ -273,9 +312,54 @@ function BallBody({ ball, physics, palette, pixel, selected }: BodyProps & { bal
           <mesh geometry={trail.geometry} renderOrder={1} frustumCulled={false}>
             <meshBasicMaterial vertexColors transparent depthWrite={false} toneMapped={false} />
           </mesh>
+          {motion && (
+            <instancedMesh ref={dotsRef} args={[undefined, undefined, MAX_STROBE_DOTS]} count={0} renderOrder={1} frustumCulled={false}>
+              <circleGeometry args={[1, 16]} />
+              <meshBasicMaterial color={palette.accent} transparent opacity={0.75} depthWrite={false} toneMapped={false} />
+            </instancedMesh>
+          )}
         </>
       )}
     </>
+  )
+}
+
+/** An arrow from the ball's center along its velocity, as long as the path it would cover in ARROW_SECONDS. */
+function VelocityArrow({ ballId, pixel, color }: { ballId: string; pixel: number; color: string }) {
+  const groupRef = useRef<Group>(null)
+  const shaftRef = useRef<Mesh>(null)
+  const headRef = useRef<Mesh>(null)
+  const head = useMemo(() => new Shape().moveTo(0, -0.5).lineTo(1, 0).lineTo(0, 0.5).closePath(), [])
+
+  useFrame(() => {
+    const group = groupRef.current
+    const shaft = shaftRef.current
+    const tip = headRef.current
+    const velocity = liveBallMotion(ballId)?.velocity
+    if (!group || !shaft || !tip) return
+    const speed = velocity ? Math.hypot(velocity.x, velocity.y) : 0
+    group.visible = speed > 0.05
+    if (!velocity || !group.visible) return
+    const length = speed * ARROW_SECONDS
+    const headLength = Math.min(ARROW_HEAD * pixel, length)
+    group.rotation.z = Math.atan2(velocity.y, velocity.x)
+    shaft.scale.set(Math.max(length - headLength, 1e-4), ARROW_WIDTH * pixel, 1)
+    shaft.position.x = (length - headLength) / 2
+    tip.scale.set(headLength, ARROW_HEAD * 0.8 * pixel, 1)
+    tip.position.x = length - headLength
+  })
+
+  return (
+    <group ref={groupRef} visible={false}>
+      <mesh ref={shaftRef} renderOrder={11}>
+        <planeGeometry />
+        <meshBasicMaterial color={color} depthTest={false} toneMapped={false} />
+      </mesh>
+      <mesh ref={headRef} renderOrder={11}>
+        <shapeGeometry args={[head]} />
+        <meshBasicMaterial color={color} depthTest={false} toneMapped={false} />
+      </mesh>
+    </group>
   )
 }
 

@@ -6,6 +6,7 @@ const KEYS: [string[], string][] = [
   [['R'], 'Restart: put released balls back'],
   [['Space'], 'Pause or resume'],
   [['F'], 'Freeze moving balls where they are'],
+  [['M'], 'Motion marks: dots every 0.1 s, speed, height, and a velocity arrow'],
   [['Z'], 'Undo (also Ctrl+Z or Cmd+Z)'],
   [['Shift', 'Z'], 'Redo (also Ctrl+Shift+Z or Cmd+Shift+Z)'],
   [['Delete'], 'Delete the selected shape'],

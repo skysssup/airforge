@@ -5,18 +5,40 @@
  */
 import type { Vec3 } from '../events/types'
 
+/** How a moving ball moves: its velocity, seconds since release, and the highest its center has been. */
+export interface BallMotion {
+  velocity: Vec3
+  seconds: number
+  highest: number
+}
+
 const poses = new Map<string, Vec3>()
+const motions = new Map<string, BallMotion>()
 
 export function setLiveBallPose(id: string, position: Vec3): void {
   poses.set(id, { x: position.x, y: position.y, z: position.z })
 }
 
+export function liveBallPose(id: string): Vec3 | undefined {
+  return poses.get(id)
+}
+
+export function setLiveBallMotion(id: string, motion: BallMotion): void {
+  motions.set(id, motion)
+}
+
+export function liveBallMotion(id: string): BallMotion | undefined {
+  return motions.get(id)
+}
+
 export function clearLiveBallPose(id: string): void {
   poses.delete(id)
+  motions.delete(id)
 }
 
 export function clearAllLiveBallPoses(): void {
   poses.clear()
+  motions.clear()
 }
 
 /** Snapshot copy for store merge. */

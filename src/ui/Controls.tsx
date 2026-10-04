@@ -6,6 +6,7 @@ import {
   ClearIcon,
   DeleteIcon,
   FreezeIcon,
+  MotionIcon,
   PauseIcon,
   PlayIcon,
   RedoIcon,
@@ -15,10 +16,11 @@ import {
 } from './icons'
 import { setExampleParam } from '../examples'
 
-/** Drop, Restart, Pause, and Freeze: the controls for running the scene. */
+/** Drop, Restart, Pause, Freeze, and Motion: the controls for running and watching the scene. */
 export function RunControls() {
   const objects = useAppState((s) => s.objects)
   const paused = useAppState((s) => s.physics.paused)
+  const motion = useAppState((s) => s.motion)
   const balls = objects.filter((o) => o.kind === 'ball')
   const waiting = balls.filter((b) => !b.dynamic).length
   const moving = balls.length - waiting
@@ -51,6 +53,11 @@ export function RunControls() {
         <FreezeIcon />
         <span className="label">Freeze</span>
         <kbd aria-hidden="true">F</kbd>
+      </button>
+      <button type="button" className="btn" aria-pressed={motion} title="Dots every 0.1 s behind moving balls, with speed and height (M)" onClick={() => appStore.toggleMotion()}>
+        <MotionIcon />
+        <span className="label">Motion</span>
+        <kbd aria-hidden="true">M</kbd>
       </button>
     </div>
   )
