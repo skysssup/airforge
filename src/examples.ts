@@ -11,6 +11,8 @@ import staircase from '../public/examples/staircase.json?raw'
 import bounceTest from '../public/examples/bounce-test.json?raw'
 import moonJump from '../public/examples/moon-jump.json?raw'
 import funnel from '../public/examples/funnel.json?raw'
+import halfPipe from '../public/examples/half-pipe.json?raw'
+import curveRace from '../public/examples/curve-race.json?raw'
 
 export interface Example {
   id: string
@@ -72,6 +74,22 @@ export const EXAMPLES: Example[] = [
     summary: 'Drop releases twelve balls at once. They knock into each other, pour through the funnel, and pile up in the box below.',
     tryNext: 'Select one side of the box and press Delete, then Restart and Drop: the balls spill across the floor.',
     json: funnel,
+  },
+  {
+    id: 'half-pipe',
+    title: 'Half-Pipe',
+    shows: 'A curved track trades height for speed and back.',
+    summary: 'Drop sends the ball down one side and up the other, a little lower on each swing, until it settles at the bottom.',
+    tryNext: 'Drag Gravity down to 1.62, then Restart and Drop: the ball swings about 2.5 times slower, like a pendulum on the Moon.',
+    json: halfPipe,
+  },
+  {
+    id: 'curve-race',
+    title: 'Curve Race',
+    shows: 'A curve beats a straight ramp to the bottom.',
+    summary: 'Both balls drop the same height. The one on the curve plunges early, picks up speed sooner, and reaches its post about half a second first, though its path is longer.',
+    tryNext: 'Set Friction to 0, then Restart and Drop: both balls slide instead of rolling and arrive sooner, and the curve still wins.',
+    json: curveRace,
   },
 ]
 

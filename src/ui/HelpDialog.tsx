@@ -29,7 +29,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <section>
           <h3 className="t-label">Drawing</h3>
           <ul>
-            <li>Drag a line for a ramp, a circle for a ball, or a rectangle for a platform. Ball size and platform tilt follow your drawing.</li>
+            <li>Drag a line for a ramp, a circle for a ball, a rectangle for a platform, or a smooth bend or wave for a curved track. Ball size, platform tilt, and the curve's shape follow your drawing.</li>
             <li>If a stroke is unclear it stays dashed and you choose what it becomes.</li>
             <li>Click a shape to select it, then drag it to move it; hold Shift to snap its center to the half-unit grid. The bar beside it rotates or duplicates it.</li>
             <li>Gravity, Bounce, and Friction apply to the whole scene and are saved with it.</li>

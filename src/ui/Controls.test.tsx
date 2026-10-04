@@ -145,7 +145,7 @@ it('lists what the scene contains in the World panel', () => {
   appStore.addBall()
   renderControls()
   const counts = Array.from(document.querySelectorAll('.counts div'), (div) => div.textContent)
-  expect(counts).toEqual(['Ramp1', 'Balls2', 'Platforms0', 'Limit3/40'])
+  expect(counts).toEqual(['Ramp1', 'Balls2', 'Platforms0', 'Curves0', 'Limit3/40'])
 })
 
 it('saves the scene as a JSON download named after the scene', async () => {

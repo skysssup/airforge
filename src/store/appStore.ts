@@ -16,7 +16,7 @@ import { recognizeStroke, shapeToObjectKind, type ShapeCandidate } from '../shap
 import { DEFAULT_VIEW, screenToWorld, type ViewBounds } from '../coords/transforms'
 import { clearAllLiveBallPoses, snapshotLiveBallPoses } from '../physics/livePoses'
 
-export type ShapeChoice = 'ramp' | 'ball' | 'platform'
+export type ShapeChoice = 'ramp' | 'ball' | 'platform' | 'curve'
 export type Theme = 'light' | 'dark'
 
 /** A finished stroke the recognizer could not classify with confidence. */
@@ -193,8 +193,9 @@ function addFromCandidate(candidate: ShapeCandidate): void {
   addObject(objectFromRecognition(candidate, state.view, state.objects), `Added a ${kind}.`)
 }
 
-/** Build a candidate of the chosen kind from the stroke's bounding box. */
+/** Build a candidate of the chosen kind from the stroke's bounding box, or follow the stroke for a curve. */
 function candidateFromBounds(kind: ShapeChoice, points: Vec2[]): ShapeCandidate {
+  if (kind === 'curve') return { kind: 'curve', params: { points }, quality: 0, metrics: {} }
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
   const minX = Math.min(...xs)
@@ -291,7 +292,7 @@ export const appStore = {
       selectedId: null,
       statusMessage: result.primary
         ? 'That stroke could be more than one shape. Choose what to add.'
-        : 'That stroke did not match a line, circle, or rectangle. Choose what to add, or discard it.',
+        : 'That stroke did not match a line, circle, rectangle, or smooth curve. Choose what to add, or discard it.',
     })
   },
 

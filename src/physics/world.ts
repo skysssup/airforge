@@ -4,7 +4,7 @@
  */
 
 import type { Vec3 } from '../events/types'
-import type { PlatformObject, RampObject } from '../scene/objects'
+import type { CurveObject, PlatformObject, RampObject } from '../scene/objects'
 import { GROUND_HALF_HEIGHT, GROUND_Y, WALL_HALF_HEIGHT, WALL_HALF_WIDTH, WALL_X } from './params'
 
 /** A fixed cuboid rotated around Z, described by its center and half extents. */
@@ -24,8 +24,40 @@ export const BOUNDARY: Box[] = [
 /** Linear and angular damping applied to every ball. */
 export const BALL_DAMPING = 0.05
 
-/** Physics step used by both worlds; the rendered world interpolates between steps. */
-export const TIME_STEP = 1 / 60
+/**
+ * Physics step used by both worlds; the rendered world interpolates between steps. At 1/60 s a fast
+ * ball could overlap the next pieces of a curve's bend within one step and wedge there.
+ */
+export const TIME_STEP = 1 / 120
+
+/** A fixed capsule (a segment swept by a sphere) in the drawing plane. */
+export interface Capsule {
+  center: Vec3
+  /** Direction of the segment, counterclockwise from +x. */
+  rotationZ: number
+  halfLength: number
+  radius: number
+}
+
+/**
+ * A curve collides as one capsule per segment. Neighbors share their end spheres, so the
+ * track has no seams or corners for a rolling ball to catch on.
+ */
+export function capsulesFor(curve: CurveObject): Capsule[] {
+  const { points } = curve
+  const capsules: Capsule[] = []
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i]!
+    const b = points[i + 1]!
+    capsules.push({
+      center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0 },
+      rotationZ: Math.atan2(b.y - a.y, b.x - a.x),
+      halfLength: Math.hypot(b.x - a.x, b.y - a.y) / 2,
+      radius: curve.radius,
+    })
+  }
+  return capsules
+}
 
 export function boxFor(object: RampObject | PlatformObject): Box {
   if (object.kind === 'platform') {

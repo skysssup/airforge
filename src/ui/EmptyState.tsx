@@ -33,6 +33,14 @@ export function EmptyState() {
             </svg>
             <figcaption className="t-label">Rectangle → platform</figcaption>
           </figure>
+          <figure>
+            <svg viewBox="0 0 96 40" aria-hidden="true">
+              <path className="stroke" d="M4 10c6 28 26 28 32 4" pathLength={1} />
+              <path className="arrow" d="M44 21h10m-3-3 3 3-3 3" />
+              <path className="solid curve" d="M62 12c5 25 25 25 30 4" />
+            </svg>
+            <figcaption className="t-label">Curve → track</figcaption>
+          </figure>
         </div>
         <p className="empty-hint">
           Drag on the sheet to draw. Press <kbd>D</kbd> to drop a ball, or open an example.

@@ -43,7 +43,7 @@ async function save(page: Page) {
   return { name: file.suggestedFilename(), json: JSON.parse(await readFile(await file.path(), 'utf8')) }
 }
 
-/** Object counts from the World panel, e.g. { ramp: 1, ball: 2, platform: 0, limit: '3/40' }. */
+/** Object counts from the World panel, e.g. { ramp: 1, ball: 2, platform: 0, curve: 0, limit: '3/40' }. */
 async function counts(page: Page) {
   const button = page.getByRole('button', { name: 'World' })
   const panel = page.getByRole('region', { name: 'World' })
@@ -86,7 +86,7 @@ test('draws, selects, deletes, undoes, and redoes shapes', async ({ page }) => {
 
   await drag(page, [at(0.1, 0.8), at(0.4, 0.8), at(0.4, 0.88), at(0.1, 0.88), at(0.1, 0.8)])
   await expect(status(page)).toHaveText('Added a platform.')
-  expect(await counts(page)).toEqual({ ramp: 1, ball: 1, platform: 1, limit: '3/40' })
+  expect(await counts(page)).toEqual({ ramp: 1, ball: 1, platform: 1, curve: 0, limit: '3/40' })
 
   await page.mouse.click(...at(0.5, 0.1))
   await expect(status(page)).toHaveText('Drag to draw. Click a shape to select it.')
@@ -103,6 +103,39 @@ test('draws, selects, deletes, undoes, and redoes shapes', async ({ page }) => {
   await page.keyboard.press('Shift+Z')
   await expect(status(page)).toHaveText('Redone.')
   expect(await counts(page)).toMatchObject({ ramp: 0, ball: 1, platform: 1 })
+})
+
+test('draws a curved track that a dropped ball rolls along', async ({ page }) => {
+  await open(page)
+  const { at } = await drawingArea(page)
+  const dip: [number, number][] = Array.from({ length: 25 }, (_, i) => {
+    const t = i / 24
+    return at(0.15 + t * 0.7, 0.35 + Math.sin(t * Math.PI) * 0.4)
+  })
+  await drag(page, dip, 2)
+  await expect(status(page)).toHaveText('Added a curve.')
+  expect(await counts(page)).toMatchObject({ curve: 1, limit: '1/40' })
+  const curve = (await save(page)).json.objects[0]
+  expect(curve).toMatchObject({ kind: 'curve', radius: 0.2 })
+  expect(curve.points.length).toBeGreaterThan(5)
+
+  await page.mouse.click(...at(0.5, 0.75))
+  await expect(page.getByRole('toolbar', { name: 'Selected curve' })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  const [cx, cy] = at(0.5, 0.25)
+  const circle: [number, number][] = Array.from({ length: 41 }, (_, i) => [cx + Math.cos((i / 40) * 2 * Math.PI) * 30, cy + Math.sin((i / 40) * 2 * Math.PI) * 30])
+  await drag(page, circle, 1)
+  await expect(status(page)).toHaveText('Added a ball.')
+  await page.keyboard.press('d')
+  await page.waitForTimeout(3000)
+  await page.getByRole('button', { name: 'Freeze' }).click()
+  const { json } = await save(page)
+  expect(json.version).toBe(2)
+  const ball = json.objects.find((o: { kind: string }) => o.kind === 'ball')
+  const lowest = Math.min(...curve.points.map((p: { y: number }) => p.y))
+  expect(ball.position.y).toBeLessThan(lowest + 1.5)
+  expect(ball.position.y).toBeGreaterThan(lowest)
 })
 
 test('moves a selected shape by dragging, turns and copies it from the bar beside it, and undoes each step', async ({ page }) => {
@@ -180,7 +213,7 @@ test('saves a scene file and opens it again; rejects a malformed file', async ({
   const input = page.locator('input[type=file]')
   await input.setInputFiles({ name: 'zigzag.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(json)) })
   await expect(status(page)).toHaveText('Opened “Zigzag” from zigzag.json.')
-  expect(await counts(page)).toEqual({ ramp: 3, ball: 1, platform: 4, limit: '8/40' })
+  expect(await counts(page)).toEqual({ ramp: 3, ball: 1, platform: 4, curve: 0, limit: '8/40' })
 
   await input.setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{"format": "airforge-scene", "version": 1') })
   await expect(status(page)).toHaveText('Could not open broken.json: Malformed JSON.')
@@ -211,9 +244,9 @@ test('every example opens from the menu and from its link', async ({ page }) => 
   const examples = page.getByRole('button', { name: 'Examples' })
   await examples.click()
   const titles = await page.getByRole('menuitem').evaluateAll((items) => items.map((item) => item.querySelector('.menu-title')!.textContent))
-  expect(titles).toEqual(['Ramp & Ball', 'Zigzag', 'Staircase', 'Bounce Test', 'Moon Jump', 'Funnel'])
+  expect(titles).toEqual(['Ramp & Ball', 'Zigzag', 'Staircase', 'Bounce Test', 'Moon Jump', 'Funnel', 'Half-Pipe', 'Curve Race'])
   await page.keyboard.press('Escape')
-  const ids = ['ramp-and-ball', 'zigzag', 'staircase', 'bounce-test', 'moon-jump', 'funnel']
+  const ids = ['ramp-and-ball', 'zigzag', 'staircase', 'bounce-test', 'moon-jump', 'funnel', 'half-pipe', 'curve-race']
   for (const [i, id] of ids.entries()) {
     await examples.click()
     await page.getByRole('menuitem', { name: titles[i]! }).click()
@@ -222,7 +255,7 @@ test('every example opens from the menu and from its link', async ({ page }) => 
     await expect(page.getByRole('complementary', { name: `About the ${titles[i]} example` })).toBeVisible()
   }
   await page.reload()
-  await expect(page.getByRole('textbox', { name: 'Scene name' })).toHaveValue('Funnel')
+  await expect(page.getByRole('textbox', { name: 'Scene name' })).toHaveValue('Curve Race')
 
   await page.goto('?example=no-such-example')
   await expect(status(page)).toHaveText('There is no example called “no-such-example”. Pick one from the Examples menu.')

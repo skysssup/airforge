@@ -7,7 +7,7 @@ import RAPIER from '@dimforge/rapier3d-compat'
 import type { SceneObject } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
 import type { Vec3 } from '../events/types'
-import { BALL_DAMPING, BOUNDARY, TIME_STEP, boxFor, type Box } from '../physics/world'
+import { BALL_DAMPING, BOUNDARY, TIME_STEP, boxFor, capsulesFor, type Box, type Capsule } from '../physics/world'
 
 export interface HeadlessWorld {
   run(seconds: number): void
@@ -29,9 +29,23 @@ export async function createHeadlessWorld(objects: SceneObject[], physics: Physi
       .setRestitution(physics.bounce), body)
   }
 
+  const addCapsule = (capsule: Capsule) => {
+    const angle = capsule.rotationZ - Math.PI / 2
+    const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed()
+      .setTranslation(capsule.center.x, capsule.center.y, capsule.center.z)
+      .setRotation({ x: 0, y: 0, z: Math.sin(angle / 2), w: Math.cos(angle / 2) }))
+    world.createCollider(RAPIER.ColliderDesc.capsule(capsule.halfLength, capsule.radius)
+      .setFriction(physics.friction)
+      .setRestitution(physics.bounce), body)
+  }
+
   BOUNDARY.forEach(addBox)
   const balls = new Map<string, RAPIER.RigidBody>()
   for (const object of objects) {
+    if (object.kind === 'curve') {
+      capsulesFor(object).forEach(addCapsule)
+      continue
+    }
     if (object.kind !== 'ball') {
       addBox(boxFor(object))
       continue

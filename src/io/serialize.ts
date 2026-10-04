@@ -10,6 +10,9 @@ export function objectsToSerialized(objects: SceneObject[]): SerializedObject[] 
     if (o.kind === 'ball') {
       return { id: o.id, kind: 'ball', createdAt: o.createdAt, position: { ...o.position }, radius: o.radius, dynamic: o.dynamic }
     }
+    if (o.kind === 'curve') {
+      return { id: o.id, kind: 'curve', createdAt: o.createdAt, points: o.points.map((p) => ({ ...p })), radius: o.radius }
+    }
     return { id: o.id, kind: 'platform', createdAt: o.createdAt, center: { ...o.center }, halfExtents: { ...o.halfExtents }, rotationZ: o.rotationZ }
   })
 }
@@ -22,6 +25,9 @@ export function serializedToObjects(file: AirForgeSceneFile): SceneObject[] {
     }
     if (o.kind === 'ball') {
       return { id: o.id, kind: 'ball', createdAt: o.createdAt, position: o.position!, radius: o.radius!, dynamic: o.dynamic! }
+    }
+    if (o.kind === 'curve') {
+      return { id: o.id, kind: 'curve', createdAt: o.createdAt, points: o.points!, radius: o.radius! }
     }
     return { id: o.id, kind: 'platform', createdAt: o.createdAt, center: o.center!, halfExtents: o.halfExtents!, rotationZ: o.rotationZ! }
   })

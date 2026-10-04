@@ -174,6 +174,45 @@ export function approxPolyDP(points: Vec2[], epsilon: number, closed: boolean): 
 }
 
 /** Perimeter / path length. */
+/** Distance from p to the segment ab. */
+export function pointSegmentDistance(p: Vec2, a: Vec2, b: Vec2): number {
+  const ab = sub(b, a)
+  const len2 = dot(ab, ab)
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, dot(sub(p, a), ab) / len2))
+  return dist(p, add(a, scale(ab, t)))
+}
+
+/** Turning angle in radians at each inner vertex of an open polyline. */
+export function turnAngles(points: Vec2[]): number[] {
+  const turns: number[] = []
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = sub(points[i]!, points[i - 1]!)
+    const b = sub(points[i + 1]!, points[i]!)
+    const la = length(a)
+    const lb = length(b)
+    if (la === 0 || lb === 0) continue
+    turns.push(Math.acos(Math.max(-1, Math.min(1, dot(a, b) / (la * lb)))))
+  }
+  return turns
+}
+
+/** Chaikin corner cutting on an open polyline: each pass rounds every inner corner and keeps both ends. */
+export function chaikin<T extends Vec2>(points: T[], passes: number): T[] {
+  let pts = points
+  for (let pass = 0; pass < passes && pts.length > 2; pass++) {
+    const out: T[] = [pts[0]!]
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i]!
+      const b = pts[i + 1]!
+      if (i > 0) out.push({ ...a, x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 })
+      if (i < pts.length - 2) out.push({ ...a, x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 })
+    }
+    out.push(pts[pts.length - 1]!)
+    pts = out
+  }
+  return pts
+}
+
 export function pathLength(points: Vec2[]): number {
   let L = 0
   for (let i = 1; i < points.length; i++) {

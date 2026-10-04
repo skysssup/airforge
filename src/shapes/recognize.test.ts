@@ -11,6 +11,11 @@ import {
   noisyLine,
   openArc,
   tinyStroke,
+  uArc,
+  wave,
+  hook,
+  corner,
+  bowedLine,
 } from '../test/strokes'
 
 describe('shape recognition', () => {
@@ -58,6 +63,26 @@ describe('shape recognition', () => {
   it('detects square', () => {
     const r = recognizeStroke(cleanSquare())
     expect(r.primary?.kind).toBe('square')
+  })
+
+  it('turns open, clearly bent strokes into curves', () => {
+    for (const stroke of [uArc(), wave(), hook(), openArc()]) {
+      const r = recognizeStroke(stroke)
+      expect(r.primary?.kind).toBe('curve')
+      expect(r.ambiguous).toBe(false)
+    }
+  })
+
+  it('keeps nearly straight strokes as lines and closed ones as circles and rectangles', () => {
+    expect(recognizeStroke(bowedLine()).primary?.kind).toBe('line')
+    expect(recognizeStroke(noisyLine()).primary?.kind).toBe('line')
+    expect(recognizeStroke(noisyCircle()).primary?.kind).toBe('circle')
+    expect(recognizeStroke(cleanRectangle()).primary?.kind).toBe('rectangle')
+  })
+
+  it('does not smooth a sharp corner into a curve', () => {
+    expect(recognizeStroke(corner()).primary?.kind).not.toBe('curve')
+    expect(recognizeStroke(ambiguousScribble()).primary?.kind).not.toBe('curve')
   })
 
   it('ambiguous scribble has no confident primary or is non-line', () => {

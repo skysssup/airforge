@@ -11,8 +11,13 @@ export interface Transform {
   angle: number
 }
 
-/** The point an object rotates around: a ramp's midpoint, a platform's or ball's center. */
+/** The point an object rotates around: a ramp's midpoint, a platform's or ball's center, the middle of a curve's bounds. */
 export function pivotOf(object: SceneObject): Vec3 {
+  if (object.kind === 'curve') {
+    const xs = object.points.map((p) => p.x)
+    const ys = object.points.map((p) => p.y)
+    return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, z: 0 }
+  }
   if (object.kind === 'ramp') {
     return { x: (object.start.x + object.end.x) / 2, y: (object.start.y + object.end.y) / 2, z: 0 }
   }
@@ -34,6 +39,7 @@ export function transformObject(object: SceneObject, { dx, dy, angle }: Transfor
   if (object.kind === 'ball') return { ...object, position: shift(object.position, dx, dy) }
   if (object.kind === 'platform') return { ...object, center: shift(object.center, dx, dy), rotationZ: object.rotationZ + angle }
   const pivot = pivotOf(object)
+  if (object.kind === 'curve') return { ...object, points: object.points.map((p) => shift(rotateAbout(p, pivot, angle), dx, dy)) }
   return {
     ...object,
     start: shift(rotateAbout(object.start, pivot, angle), dx, dy),

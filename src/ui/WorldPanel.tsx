@@ -43,7 +43,8 @@ export function WorldPanel({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLElement>(null)
   const ramps = objects.filter((o) => o.kind === 'ramp').length
   const balls = objects.filter((o) => o.kind === 'ball').length
-  const platforms = objects.length - ramps - balls
+  const curves = objects.filter((o) => o.kind === 'curve').length
+  const platforms = objects.length - ramps - balls - curves
 
   useEffect(() => {
     const toggle = () => document.querySelector<HTMLElement>('[aria-controls="world-panel"]')
@@ -98,6 +99,10 @@ export function WorldPanel({ onClose }: { onClose: () => void }) {
         <div>
           <dt className="t-label">{platforms === 1 ? 'Platform' : 'Platforms'}</dt>
           <dd>{platforms}</dd>
+        </div>
+        <div>
+          <dt className="t-label">{curves === 1 ? 'Curve' : 'Curves'}</dt>
+          <dd>{curves}</dd>
         </div>
         <div>
           <dt className="t-label">Limit</dt>

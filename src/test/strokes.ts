@@ -113,3 +113,49 @@ export function openArc(cx = 400, cy = 300, r = 80, n = 30): Vec2[] {
   }
   return pts
 }
+
+/** A wide U: the bottom half of a circle, ends apart. */
+export function uArc(cx = 640, cy = 260, r = 200, n = 60): Vec2[] {
+  const pts: Vec2[] = []
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI * (0.05 + (0.9 * i) / (n - 1))
+    pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r })
+  }
+  return pts
+}
+
+/** Two hills across the sheet: swings well to both sides of the line between its ends. */
+export function wave(n = 80): Vec2[] {
+  const pts: Vec2[] = []
+  for (let i = 0; i < n; i++) pts.push({ x: 200 + i * 10, y: 360 + Math.sin(i / 8) * 80 })
+  return pts
+}
+
+/** A straight run that curls round at the end, like a J on its side. */
+export function hook(): Vec2[] {
+  const pts: Vec2[] = []
+  for (let i = 0; i < 30; i++) pts.push({ x: 200 + i * 15, y: 300 })
+  for (let i = 1; i < 25; i++) {
+    const a = -Math.PI / 2 + (i / 24) * Math.PI * 0.9
+    pts.push({ x: 635 + Math.cos(a) * 60, y: 360 + Math.sin(a) * 60 })
+  }
+  return pts
+}
+
+/** Two straight strokes meeting at a right angle. */
+export function corner(): Vec2[] {
+  const pts: Vec2[] = []
+  for (let i = 0; i < 20; i++) pts.push({ x: 300, y: 200 + i * 10 })
+  for (let i = 0; i < 20; i++) pts.push({ x: 300 + i * 10, y: 400 })
+  return pts
+}
+
+/** A long line with the slight bow of a quick wrist movement. */
+export function bowedLine(n = 50): Vec2[] {
+  const pts: Vec2[] = []
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1)
+    pts.push({ x: 200 + t * 600, y: 300 + Math.sin(t * Math.PI) * 60 })
+  }
+  return pts
+}

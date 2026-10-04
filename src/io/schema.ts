@@ -8,11 +8,13 @@ import type { PhysicsParams } from '../physics/params'
 import {
   BOUNCE_MAX,
   BOUNCE_MIN,
+  CURVE_RADIUS,
   DEFAULT_PHYSICS,
   FRICTION_MAX,
   FRICTION_MIN,
   GRAVITY_MAX,
   GRAVITY_MIN,
+  MAX_CURVE_POINTS,
   MAX_OBJECT_SIZE,
   MAX_OBJECTS,
   MAX_WORLD_COORDINATE,
@@ -20,7 +22,12 @@ import {
   isWithinWorldBounds,
 } from '../physics/params'
 
-export const SCENE_FORMAT_VERSION = 1 as const
+/**
+ * Newest scene format. Version 2 adds curves. A scene without curves is still written as version 1,
+ * so AirForge 1.x can open it; both versions are read.
+ */
+export const SCENE_FORMAT_VERSION = 2 as const
+export type SceneFormatVersion = 1 | typeof SCENE_FORMAT_VERSION
 export const MAX_JSON_BYTES = 512_000 // 512 KB
 
 export interface SerializedVec3 {
@@ -46,11 +53,13 @@ export interface SerializedObject {
   center?: SerializedVec3
   halfExtents?: SerializedVec3
   rotationZ?: number
+  // curve (also uses radius)
+  points?: SerializedVec3[]
 }
 
 export interface AirForgeSceneFile {
   format: 'airforge-scene'
-  version: typeof SCENE_FORMAT_VERSION
+  version: SceneFormatVersion
   name: string
   exportedAt: string
   physics: PhysicsParams
@@ -109,12 +118,13 @@ export function validateSceneJson(raw: string): ValidationResult {
   if (obj.format !== 'airforge-scene') {
     return { ok: false, error: 'Missing or invalid format field (expected airforge-scene).' }
   }
-  if (obj.version !== SCENE_FORMAT_VERSION) {
+  if (obj.version !== 1 && obj.version !== SCENE_FORMAT_VERSION) {
     return {
       ok: false,
-      error: `Unsupported version ${String(obj.version)} (expected ${SCENE_FORMAT_VERSION}).`,
+      error: `Unsupported version ${String(obj.version)} (expected 1 or ${SCENE_FORMAT_VERSION}).`,
     }
   }
+  const version: SceneFormatVersion = obj.version
   if (typeof obj.name !== 'string' || obj.name.length > 200) {
     return { ok: false, error: 'Invalid name.' }
   }
@@ -135,7 +145,7 @@ export function validateSceneJson(raw: string): ValidationResult {
   const objects: SerializedObject[] = []
   const seenIds = new Set<string>()
   for (const item of obj.objects) {
-    const parsed = parseObject(item)
+    const parsed = parseObject(item, version)
     if (!parsed.ok) return parsed
     if (seenIds.has(parsed.object.id)) {
       return { ok: false, error: `Duplicate object id: ${parsed.object.id}` }
@@ -155,7 +165,7 @@ export function validateSceneJson(raw: string): ValidationResult {
     ok: true,
     scene: {
       format: 'airforge-scene',
-      version: SCENE_FORMAT_VERSION,
+      version,
       name: obj.name,
       exportedAt: obj.exportedAt,
       physics: physics.physics,
@@ -193,6 +203,7 @@ function parsePhysics(
 
 function parseObject(
   v: unknown,
+  version: SceneFormatVersion,
 ): { ok: true; object: SerializedObject } | { ok: false; error: string } {
   if (typeof v !== 'object' || v === null) {
     return { ok: false, error: 'Invalid object entry.' }
@@ -201,8 +212,11 @@ function parseObject(
   if (typeof o.id !== 'string' || o.id.length > 100) {
     return { ok: false, error: 'Invalid object id.' }
   }
-  if (o.kind !== 'ramp' && o.kind !== 'ball' && o.kind !== 'platform') {
+  if (o.kind !== 'ramp' && o.kind !== 'ball' && o.kind !== 'platform' && o.kind !== 'curve') {
     return { ok: false, error: `Unknown object kind: ${String(o.kind)}` }
+  }
+  if (o.kind === 'curve' && version < 2) {
+    return { ok: false, error: 'Curves need scene format version 2.' }
   }
   if (!isNum(o.createdAt)) {
     return { ok: false, error: 'Invalid createdAt.' }
@@ -242,6 +256,23 @@ function parseObject(
     base.position = vec3(o.position)
     base.radius = radius
     base.dynamic = typeof o.dynamic === 'boolean' ? o.dynamic : false
+  } else if (o.kind === 'curve') {
+    const points = o.points
+    if (!Array.isArray(points) || points.length < 2 || points.length > MAX_CURVE_POINTS || !points.every(isVec3)) {
+      return { ok: false, error: `Curve needs 2 to ${MAX_CURVE_POINTS} points.` }
+    }
+    if (!points.every(isWithinWorldBounds)) {
+      return { ok: false, error: `Object coordinates must be within ±${MAX_WORLD_COORDINATE} world units.` }
+    }
+    if (points.some((p, i) => i > 0 && Math.hypot(p.x - points[i - 1]!.x, p.y - points[i - 1]!.y) < MIN_OBJECT_SIZE)) {
+      return { ok: false, error: 'Curve points must not repeat.' }
+    }
+    const radius = isNum(o.radius) ? o.radius : CURVE_RADIUS
+    if (!isPositiveSize(radius)) {
+      return { ok: false, error: 'Curve radius must be positive and within limits.' }
+    }
+    base.points = points.map(vec3)
+    base.radius = radius
   } else {
     if (!isVec3(o.center) || !isVec3(o.halfExtents)) {
       return { ok: false, error: 'Platform missing center/halfExtents.' }
@@ -268,7 +299,7 @@ export function serializeScene(
 ): string {
   const file: AirForgeSceneFile = {
     format: 'airforge-scene',
-    version: SCENE_FORMAT_VERSION,
+    version: objects.some((o) => o.kind === 'curve') ? SCENE_FORMAT_VERSION : 1,
     name,
     exportedAt: new Date().toISOString(),
     physics: { ...physics },

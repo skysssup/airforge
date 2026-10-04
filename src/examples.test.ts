@@ -61,6 +61,11 @@ describe.each(EXAMPLES)('$title', (example) => {
     for (const o of scene.objects) {
       const reach = o.kind === 'ball'
         ? { x: Math.abs(o.position.x) + o.radius, y: Math.abs(o.position.y) + o.radius }
+        : o.kind === 'curve'
+        ? {
+            x: Math.max(...o.points.map((p) => Math.abs(p.x))) + o.radius,
+            y: Math.max(...o.points.map((p) => Math.abs(p.y))) + o.radius,
+          }
         : (() => {
             const { center, rotationZ, halfExtents } = boxFor(o)
             const cos = Math.abs(Math.cos(rotationZ))
@@ -165,6 +170,66 @@ describe('what each example does after Drop', () => {
       expect(settled!.position.x).toBeGreaterThan(bin.min)
       expect(settled!.position.x).toBeLessThan(bin.max)
     }
+  })
+
+  it('Half-Pipe: each swing peaks lower than the last, and Moon gravity swings about 2.5 times slower', async () => {
+    const { objects, physics } = scene('half-pipe')
+    const swing = async (gravity: number) => {
+      const world = await createHeadlessWorld(dropAll(objects), { ...physics, gravity })
+      const peaks: number[] = []
+      const crossings: number[] = []
+      let previous = [Infinity, Infinity]
+      let lastX = world.position('ball').x
+      let highest = -Infinity
+      for (let step = 1; step <= 50 * 60; step++) {
+        world.run(1 / 60)
+        const { x, y } = world.position('ball')
+        highest = Math.max(highest, y)
+        if (previous[1]! > previous[0]! && previous[1]! >= y && previous[1]! > -2) peaks.push(previous[1]!)
+        previous = [previous[1]!, y]
+        if (lastX < 0 && x >= 0) crossings.push(step / 60)
+        lastX = x
+      }
+      const rest = world.position('ball')
+      world.free()
+      return { peaks, period: crossings[1]! - crossings[0]!, highest, rest }
+    }
+    const earth = await swing(physics.gravity)
+    const start = objects.find((o) => o.kind === 'ball')!
+    expect(earth.highest).toBeLessThanOrEqual(start.kind === 'ball' ? start.position.y + 0.01 : 0)
+    expect(earth.peaks.length).toBeGreaterThanOrEqual(5)
+    for (let i = 1; i < earth.peaks.length; i++) expect(earth.peaks[i]!).toBeLessThan(earth.peaks[i - 1]!)
+    expect(Math.abs(earth.rest.x)).toBeLessThan(0.5)
+    const moon = await swing(1.62)
+    expect(moon.period / earth.period).toBeGreaterThan(2.2)
+    expect(moon.period / earth.period).toBeLessThan(2.7)
+  })
+
+  it('Curve Race: the ball on the curve reaches its post first, rolling or sliding', async () => {
+    const { objects, physics } = scene('curve-race')
+    const post = (id: string) => objects.find((o): o is PlatformObject => o.id === id)!
+    const arrivals = async (variant: SceneObject[], params: PhysicsParams) => {
+      const world = await createHeadlessWorld(dropAll(variant), params)
+      const at: Record<string, number> = {}
+      for (let step = 1; step <= 10 * 60 && Object.keys(at).length < 2; step++) {
+        world.run(1 / 60)
+        for (const [ball, postId] of [['ball-curve', 'post-curve'], ['ball-ramp', 'post-ramp']] as const) {
+          const touching = post(postId).center.x - post(postId).halfExtents.y - 0.35 - 0.05
+          if (at[ball] == null && world.position(ball).x >= touching) at[ball] = step / 60
+        }
+      }
+      world.free()
+      return at
+    }
+    for (const variant of variants(objects)) {
+      const rolling = await arrivals(variant, physics)
+      expect(rolling['ball-curve']! + 0.3).toBeLessThan(rolling['ball-ramp']!)
+    }
+    const rolling = await arrivals(objects, physics)
+    const sliding = await arrivals(objects, { ...physics, friction: 0 })
+    expect(sliding['ball-curve']!).toBeLessThan(sliding['ball-ramp']!)
+    expect(sliding['ball-curve']!).toBeLessThan(rolling['ball-curve']!)
+    expect(sliding['ball-ramp']!).toBeLessThan(rolling['ball-ramp']!)
   })
 
   it('Funnel: all twelve balls end up in the box', async () => {

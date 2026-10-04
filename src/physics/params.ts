@@ -55,6 +55,13 @@ export const SPAWN_CLEARANCE = 0.15
 
 export const MAX_OBJECTS = 40
 
+/** Radius of a curved track's round cross-section, half its thickness. */
+export const CURVE_RADIUS = 0.2
+/** A curve's centerline keeps vertices at least this far apart (world units)… */
+export const MIN_CURVE_SEGMENT = 0.35
+/** …and at most this many of them. */
+export const MAX_CURVE_POINTS = 64
+
 /**
  * Floor and side walls (see physics/world.ts). Ball centers must sit at or
  * above GROUND_TOP_Y + radius to avoid embedding in the floor.

@@ -36,6 +36,17 @@ it('casts soft shadows for ramps and platforms but not for balls', () => {
   expect(container.querySelectorAll('.shadows rect')).toHaveLength(solids)
 })
 
+it('casts a round-ended shadow along a curve', () => {
+  appStore.setView(viewBoundsFor(1280, 720))
+  const { container } = render(<SheetBackdrop />)
+  const scene = loadExampleScene(EXAMPLES.find((e) => e.id === 'half-pipe')!)
+  act(() => appStore.loadScene(scene, { message: 'opened' }))
+  const shadow = container.querySelector('.shadows path.curve-shadow')!
+  const pipe = scene.objects.find((o) => o.kind === 'curve')!
+  expect(shadow.getAttribute('d')!.split('L')).toHaveLength(pipe.kind === 'curve' ? pipe.points.length : 0)
+  expect(container.querySelectorAll('.shadows rect')).toHaveLength(0)
+})
+
 it('draws a grid line for every world unit, with heavier lines every four', () => {
   const view = viewBoundsFor(1280, 720)
   appStore.setView(view)

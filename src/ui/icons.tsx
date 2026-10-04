@@ -48,3 +48,4 @@ export const SlidersIcon = () => <Icon><path d="M2.5 5h11M2.5 11h11" /><path d="
 export const RampGlyph = () => <Icon><path d="M2.5 12.5 13.5 4" /><path d="m3.5 13.8 11-8.5" opacity=".45" /></Icon>
 export const BallGlyph = () => <Icon><circle cx="8" cy="8" r="4.5" /></Icon>
 export const PlatformGlyph = () => <Icon><path d="M2 6.5h12v3H2z" /></Icon>
+export const CurveGlyph = () => <Icon><path d="M2 4.5c2.5 9 9.5 9 12 0" /></Icon>

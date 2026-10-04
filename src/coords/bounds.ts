@@ -3,6 +3,7 @@
 import { worldToScreen, type ViewBounds } from './transforms'
 import { boxFor } from '../physics/world'
 import type { SceneObject } from '../scene/objects'
+import { pivotOf } from '../scene/transform'
 
 /**
  * The shape's center on screen, and how far its outline reaches above and below that center within
@@ -13,6 +14,11 @@ export function screenAnchor(object: SceneObject, view: ViewBounds, halfWidth = 
   if (object.kind === 'ball') {
     const c = worldToScreen(object.position, view)
     return { x: c.x, y: c.y, reach: object.radius * pixels }
+  }
+  if (object.kind === 'curve') {
+    const c = worldToScreen(pivotOf(object), view)
+    const ys = object.points.map((p) => p.y)
+    return { x: c.x, y: c.y, reach: ((Math.max(...ys) - Math.min(...ys)) / 2 + object.radius) * pixels }
   }
   const { center, rotationZ, halfExtents: h } = boxFor(object)
   const cos = Math.abs(Math.cos(rotationZ))

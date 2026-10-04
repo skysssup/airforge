@@ -9,7 +9,7 @@ const MAJOR_EVERY = 4
 /**
  * The drawing sheet behind the 3D canvas: a grid in world units (major lines
  * every 4), the hatched floor and side walls the physics world collides with,
- * and the soft shadows of ramps and platforms.
+ * and the soft shadows of ramps, platforms, and curves.
  */
 export function SheetBackdrop() {
   const view = useAppState((s) => s.view)
@@ -36,8 +36,16 @@ export function SheetBackdrop() {
 
   const groundTop = Math.round(px(0, GROUND_TOP_Y).y) + 0.5
   const scale = width / (2 * view.worldHalfWidth)
+  const curveShadows = objects.flatMap((o) => {
+    if (o.kind !== 'curve') return []
+    const d = o.points.map((p, i) => {
+      const at = px(p.x + SHADOW_OFFSET.x, p.y + SHADOW_OFFSET.y)
+      return `${i === 0 ? 'M' : 'L'}${at.x} ${at.y}`
+    })
+    return [{ id: o.id, d: d.join(''), width: o.radius * 2 * scale }]
+  })
   const shadows = objects.flatMap((o) => {
-    if (o.kind === 'ball') return []
+    if (o.kind === 'ball' || o.kind === 'curve') return []
     const { center, rotationZ, halfExtents } = boxFor(o)
     const at = px(center.x + SHADOW_OFFSET.x, center.y + SHADOW_OFFSET.y)
     const w = halfExtents.x * 2 * scale
@@ -80,6 +88,9 @@ export function SheetBackdrop() {
       <g className="shadows" filter="url(#soft-shadow)">
         {shadows.map(({ id, at, w, h, degrees }) => (
           <rect key={id} x={-w / 2} y={-h / 2} width={w} height={h} rx={Math.min(4, h / 2)} transform={`translate(${at.x} ${at.y}) rotate(${degrees})`} />
+        ))}
+        {curveShadows.map(({ id, d, width }) => (
+          <path key={id} className="curve-shadow" d={d} strokeWidth={width} />
         ))}
       </g>
     </svg>

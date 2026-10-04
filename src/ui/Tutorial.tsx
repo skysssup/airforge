@@ -16,7 +16,7 @@ export function Tutorial() {
           <li>
             <span className="idx">01</span>
             <span>
-              Drag a <strong>line</strong> for a ramp, a <strong>circle</strong> for a ball, or a <strong>rectangle</strong> for a platform.
+              Drag a <strong>line</strong> for a ramp, a <strong>circle</strong> for a ball, a <strong>rectangle</strong> for a platform, or a <strong>curve</strong> for a track.
             </span>
           </li>
           <li>
@@ -33,7 +33,7 @@ export function Tutorial() {
           </li>
         </ol>
         <p className="aside muted">
-          The Examples menu has six scenes that show what you can build. Press <kbd>?</kbd> for every control.
+          The Examples menu has eight scenes that show what you can build. Press <kbd>?</kbd> for every control.
         </p>
       </div>
       <div className="button-row">

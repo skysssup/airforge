@@ -1,7 +1,8 @@
 /**
  * Pure TypeScript shape recognition.
  *
- * Priority: line → circle → rectangle/square
+ * Priority: curve → line → circle → rectangle/square. A curve must be open and clearly bent,
+ * so a straight stroke, a closed loop, and a corner never reach the later checks as curves.
  * Quality metrics are geometric fit scores (not fake ML confidence).
  */
 
@@ -18,10 +19,11 @@ import {
   pointLineDistance,
   stddev,
   sub,
+  turnAngles,
   unwrapAngles,
 } from './geometry'
 
-export type RecognizedKind = 'line' | 'circle' | 'rectangle' | 'square'
+export type RecognizedKind = 'line' | 'circle' | 'rectangle' | 'square' | 'curve'
 
 export interface LineParams {
   x1: number
@@ -40,7 +42,12 @@ export interface RectParams {
   corners: Vec2[]
 }
 
-export type ShapeParams = LineParams | CircleParams | RectParams
+/** The stroke as drawn; it is smoothed into a track when it becomes an object. */
+export interface CurveParams {
+  points: Vec2[]
+}
+
+export type ShapeParams = LineParams | CircleParams | RectParams | CurveParams
 
 export interface ShapeCandidate {
   kind: RecognizedKind
@@ -64,6 +71,19 @@ const MIN_RECT_PERIMETER = 100
 const MIN_POINTS_LINE = 2
 const MIN_POINTS_CIRCLE = 8
 const MIN_POINTS_RECT = 15
+const MIN_POINTS_CURVE = 8
+const MIN_CURVE_LENGTH = 80
+/** A curve's ends must be apart by at least this share of its length; closer ends make a loop or a shape. */
+const CURVE_OPENNESS = 0.2
+/** A curve bows at least this far to one side of the straight line between its ends… */
+const MIN_CURVE_BOW = 25
+const CURVE_BOW_RATIO = 0.12
+/** …or swings at least this far to both sides of it, like a wave. Straighter strokes are ramps. */
+const MIN_CURVE_SWING = 20
+const CURVE_SWING_RATIO = 0.05
+/** Sharpest turn a curve may take, measured on an outline that ignores wobbles smaller than this many pixels. */
+const MAX_CURVE_TURN = (75 * Math.PI) / 180
+const CURVE_OUTLINE_TOLERANCE = 6
 
 export function recognizeStroke(points: Vec2[]): RecognitionResult {
   const alternatives: ShapeCandidate[] = []
@@ -72,7 +92,11 @@ export function recognizeStroke(points: Vec2[]): RecognitionResult {
     return { primary: null, alternatives, ambiguous: false }
   }
 
-  // Priority: line → circle → rectangle/square
+  const curve = detectCurve(points)
+  if (curve) {
+    return { primary: curve, alternatives, ambiguous: false }
+  }
+
   const line = detectLine(points)
   if (line) {
     return { primary: line, alternatives, ambiguous: false }
@@ -97,6 +121,40 @@ export function recognizeStroke(points: Vec2[]): RecognitionResult {
   }
 
   return { primary: null, alternatives, ambiguous: false }
+}
+
+/** An open, smooth, clearly bent stroke: an arc, a dip, a wave, or a hook. */
+export function detectCurve(points: Vec2[]): ShapeCandidate | null {
+  if (points.length < MIN_POINTS_CURVE) return null
+  const length = pathLength(points)
+  if (length < MIN_CURVE_LENGTH) return null
+  const start = points[0]!
+  const end = points[points.length - 1]!
+  const chord = dist(start, end)
+  const openness = chord / length
+  if (openness < CURVE_OPENNESS) return null
+
+  const normal = normalize({ x: start.y - end.y, y: end.x - start.x })
+  let left = 0
+  let right = 0
+  for (const p of points) {
+    const d = dot(sub(p, start), normal)
+    left = Math.max(left, d)
+    right = Math.max(right, -d)
+  }
+  const bow = Math.max(left, right)
+  const swing = Math.min(left, right)
+  const bent = bow >= Math.max(MIN_CURVE_BOW, chord * CURVE_BOW_RATIO) || swing >= Math.max(MIN_CURVE_SWING, chord * CURVE_SWING_RATIO)
+  if (!bent) return null
+
+  const sharpest = Math.max(0, ...turnAngles(approxPolyDP(points, CURVE_OUTLINE_TOLERANCE, false)))
+  if (sharpest > MAX_CURVE_TURN) return null
+  return {
+    kind: 'curve',
+    params: { points: points.slice() },
+    quality: clamp01(1 - (sharpest / MAX_CURVE_TURN) * 0.5),
+    metrics: { length, openness, bow, swing, sharpestTurnDeg: (sharpest * 180) / Math.PI },
+  }
 }
 
 export function detectLine(points: Vec2[]): ShapeCandidate | null {
@@ -313,8 +371,9 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 /** Map recognized geometric shape → playground object kind. */
-export function shapeToObjectKind(kind: RecognizedKind): 'ramp' | 'ball' | 'platform' {
+export function shapeToObjectKind(kind: RecognizedKind): 'ramp' | 'ball' | 'platform' | 'curve' {
   if (kind === 'line') return 'ramp'
   if (kind === 'circle') return 'ball'
+  if (kind === 'curve') return 'curve'
   return 'platform'
 }

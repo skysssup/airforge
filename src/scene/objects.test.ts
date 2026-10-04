@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { objectFromRecognition, createBallAt, topSurfaceY, clearBallFromColliders, hitTest, type PlatformObject, type RampObject } from './objects'
+import { objectFromRecognition, createBallAt, topSurfaceY, clearBallFromColliders, hitTest, curveCenterline, liftClearOfShapes, ballOverlapsShapes, type CurveObject, type PlatformObject, type RampObject } from './objects'
 import { recognizeStroke } from '../shapes/recognize'
-import { cleanCircle, cleanDiagonalLine, cleanRectangle } from '../test/strokes'
-import { BALL_RADIUS, MAX_BALL_RADIUS, MAX_WORLD_COORDINATE, MIN_BALL_RADIUS, SPAWN_CLEARANCE, ballMinY } from '../physics/params'
+import { cleanCircle, cleanDiagonalLine, cleanRectangle, uArc } from '../test/strokes'
+import { BALL_RADIUS, CURVE_RADIUS, MAX_BALL_RADIUS, MAX_CURVE_POINTS, MAX_WORLD_COORDINATE, MIN_BALL_RADIUS, MIN_CURVE_SEGMENT, SPAWN_CLEARANCE, ballMinY } from '../physics/params'
 import { DEFAULT_VIEW } from '../coords/transforms'
 
 const platform: PlatformObject = {
@@ -84,6 +84,44 @@ describe('spawn clearance', () => {
   it('marks a ball dropped straight away with its release point', () => {
     const ball = createBallAt({ x: 1, y: 2, z: 0 }, [], true)!
     expect(ball.releasedFrom).toEqual(ball.position)
+  })
+})
+
+describe('curves', () => {
+  const dip: CurveObject = {
+    id: 'dip', kind: 'curve', createdAt: 0, radius: CURVE_RADIUS,
+    points: [{ x: -3, y: 2, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 3, y: 2, z: 0 }],
+  }
+
+  it('turns a drawn bend into a smooth track that keeps its ends', () => {
+    const stroke = uArc()
+    const curve = objectFromRecognition(recognizeStroke(stroke).primary!, DEFAULT_VIEW) as CurveObject
+    expect(curve.kind).toBe('curve')
+    expect(curve.radius).toBe(CURVE_RADIUS)
+    const start = objectFromRecognition({ kind: 'line', quality: 1, metrics: {}, params: { x1: stroke[0]!.x, y1: stroke[0]!.y, x2: stroke.at(-1)!.x, y2: stroke.at(-1)!.y } }, DEFAULT_VIEW) as RampObject
+    expect(curve.points[0]).toEqual(start.start)
+    expect(curve.points.at(-1)).toEqual(start.end)
+    const gaps = curve.points.slice(1).map((p, i) => Math.hypot(p.x - curve.points[i]!.x, p.y - curve.points[i]!.y))
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_CURVE_SEGMENT / 2)
+    expect(curve.points.length).toBeLessThanOrEqual(MAX_CURVE_POINTS)
+  })
+
+  it('caps a long, wiggly path at the point limit and ignores a path too short to be a track', () => {
+    const spiral = Array.from({ length: 4000 }, (_, i) => ({ x: Math.cos(i / 60) * (1 + i / 800), y: Math.sin(i / 60) * (1 + i / 800), z: 0 }))
+    const points = curveCenterline(spiral)!
+    expect(points.length).toBeLessThanOrEqual(MAX_CURVE_POINTS)
+    expect(points.at(-1)).toEqual({ ...spiral.at(-1)!, z: 0 })
+    expect(curveCenterline([{ x: 0, y: 0, z: 0 }, { x: 0.3, y: 0, z: 0 }])).toBeNull()
+  })
+
+  it('is hit along its length, and lifts a ball placed on it just clear', () => {
+    expect(hitTest([dip], { x: 0, y: 0.1, z: 0 }, 0)).toBe(dip)
+    expect(hitTest([dip], { x: 0, y: 1, z: 0 }, 0.2)).toBeNull()
+    expect(topSurfaceY([dip], 0)).toBeCloseTo(CURVE_RADIUS)
+    const lifted = liftClearOfShapes({ x: 0, y: 0, z: 0 }, BALL_RADIUS, [dip])
+    expect(lifted.y).toBeGreaterThanOrEqual(CURVE_RADIUS + BALL_RADIUS + SPAWN_CLEARANCE)
+    expect(lifted.y).toBeLessThan(CURVE_RADIUS + BALL_RADIUS + SPAWN_CLEARANCE + 0.03)
+    expect(ballOverlapsShapes(lifted, BALL_RADIUS, [dip])).toBe(false)
   })
 })
 

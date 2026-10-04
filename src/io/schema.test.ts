@@ -50,6 +50,33 @@ describe('export/import', () => {
     expect(r.ok).toBe(false)
   })
 
+  it('reads curves from version 2 files and refuses them in version 1', () => {
+    const curve = { id: 'c', kind: 'curve', createdAt: 0, points: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }], radius: 0.2 }
+    const ok = validateSceneJson(JSON.stringify(scene({ version: 2, objects: [curve] })))
+    expect(ok.ok && ok.scene.objects[0]).toEqual(curve)
+    expect(validateSceneJson(JSON.stringify(scene({ version: 1, objects: [curve] })))).toMatchObject({ ok: false, error: 'Curves need scene format version 2.' })
+  })
+
+  it('rejects curves with too few or too many points, repeated points, or a bad radius', () => {
+    const curve = (extra: Record<string, unknown>) => JSON.stringify(scene({ version: 2, objects: [{ id: 'c', kind: 'curve', createdAt: 0, points: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }], radius: 0.2, ...extra }] }))
+    const many = Array.from({ length: 65 }, (_, i) => ({ x: i, y: 0, z: 0 }))
+    expect(validateSceneJson(curve({ points: [{ x: 0, y: 0, z: 0 }] })).ok).toBe(false)
+    expect(validateSceneJson(curve({ points: many })).ok).toBe(false)
+    expect(validateSceneJson(curve({ points: [{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }] })).ok).toBe(false)
+    expect(validateSceneJson(curve({ points: [{ x: 0, y: 0, z: 0 }, { x: MAX_WORLD_COORDINATE * 2, y: 0, z: 0 }] })).ok).toBe(false)
+    expect(validateSceneJson(curve({ radius: -1 })).ok).toBe(false)
+  })
+
+  it('writes version 1 unless the scene has a curve, so AirForge 1.x opens it', () => {
+    const version = (json: string) => (JSON.parse(json) as { version: number }).version
+    expect(version(exportSceneJson('a', rampAndBall.objects, DEFAULT_PHYSICS))).toBe(1)
+    const curve = { id: 'c', kind: 'curve' as const, createdAt: 0, points: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }], radius: 0.2 }
+    const json = exportSceneJson('b', [...rampAndBall.objects, curve], DEFAULT_PHYSICS)
+    expect(version(json)).toBe(2)
+    const back = importSceneJson(json)
+    expect(back.ok && back.objects.at(-1)).toEqual(curve)
+  })
+
   it('rejects wrong version', () => {
     const r = validateSceneJson(JSON.stringify(scene({ version: 999 })))
     expect(r.ok).toBe(false)

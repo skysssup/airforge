@@ -17,7 +17,7 @@ export function DrawingOverlay({ enabled }: { enabled: boolean }) {
       ref={refCallback}
       className="drawing-overlay"
       role="application"
-      aria-label="Drawing area. Drag to draw a line, circle, or rectangle; click a shape to select it, then drag it to move it."
+      aria-label="Drawing area. Drag to draw a line, circle, rectangle, or curve; click a shape to select it, then drag it to move it."
       onPointerMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect()
         const point = { x: e.clientX - rect.left, y: e.clientY - rect.top }

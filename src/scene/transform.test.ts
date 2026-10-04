@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { copyOf, pivotOf, snapMove, transformObject } from './transform'
-import type { BallObject, PlatformObject, RampObject } from './objects'
+import type { BallObject, CurveObject, PlatformObject, RampObject } from './objects'
 
 const ramp: RampObject = { id: 'r', kind: 'ramp', createdAt: 0, start: { x: -2, y: 1, z: 0 }, end: { x: 2, y: -1, z: 0 }, width: 0.28, thickness: 0.35 }
 const platform: PlatformObject = { id: 'p', kind: 'platform', createdAt: 0, center: { x: 1, y: -2, z: 0 }, halfExtents: { x: 1, y: 0.12, z: 0.2 }, rotationZ: 0.1 }
@@ -21,6 +21,14 @@ describe('transforms', () => {
   it('turns a platform about its center and moves a ball without rotating it', () => {
     expect(transformObject(platform, { dx: -1, dy: 0.5, angle: 0.2 })).toMatchObject({ center: { x: 0, y: -1.5 }, rotationZ: 0.1 + 0.2 })
     expect(transformObject(ball, { dx: 1, dy: -1, angle: 1 })).toMatchObject({ position: { x: 1, y: 2, z: 0 } })
+  })
+
+  it('turns a curve about the middle of its bounds and moves every point', () => {
+    const curve: CurveObject = { id: 'c', kind: 'curve', createdAt: 0, radius: 0.2, points: [{ x: -2, y: 1, z: 0 }, { x: 0, y: -1, z: 0 }, { x: 2, y: 1, z: 0 }] }
+    expect(pivotOf(curve)).toEqual({ x: 0, y: 0, z: 0 })
+    const turned = transformObject(curve, { dx: 1, dy: 0, angle: Math.PI }) as CurveObject
+    expect(turned.points.map((p) => [Number(p.x.toFixed(6)), Number(p.y.toFixed(6))])).toEqual([[3, -1], [1, 1], [-1, -1]])
+    expect(copyOf(curve, 0.5, 0)).toMatchObject({ kind: 'curve', points: [{ x: -1.5, y: 1 }, { x: 0.5, y: -1 }, { x: 2.5, y: 1 }] })
   })
 
   it('snaps a move so the pivot lands on the grid', () => {

@@ -1,12 +1,16 @@
-/** Scene object model (ramp, ball, platform) and the geometry helpers that place them. */
+/** Scene object model (ramp, ball, platform, curve) and the geometry helpers that place them. */
 
 import type { Vec3, ObjectKind } from '../events/types'
-import type { CircleParams, LineParams, RectParams, ShapeCandidate } from '../shapes/recognize'
+import type { CircleParams, CurveParams, LineParams, RectParams, ShapeCandidate } from '../shapes/recognize'
 import { shapeToObjectKind } from '../shapes/recognize'
+import { approxPolyDP, chaikin, pathLength, pointSegmentDistance } from '../shapes/geometry'
 import { screenToWorld, type ViewBounds, DEFAULT_VIEW } from '../coords/transforms'
 import { boxFor } from '../physics/world'
 import {
   BALL_RADIUS,
+  CURVE_RADIUS,
+  MAX_CURVE_POINTS,
+  MIN_CURVE_SEGMENT,
   MAX_BALL_RADIUS,
   MESH_THICKNESS,
   MIN_BALL_RADIUS,
@@ -54,7 +58,36 @@ export interface PlatformObject extends SceneObjectBase {
   rotationZ: number
 }
 
-export type SceneObject = RampObject | BallObject | PlatformObject
+export interface CurveObject extends SceneObjectBase {
+  kind: 'curve'
+  /** World-space centerline, smoothed from the stroke: 2 to MAX_CURVE_POINTS vertices. */
+  points: Vec3[]
+  /** Radius of the round cross-section, half the track's thickness. */
+  radius: number
+}
+
+export type SceneObject = RampObject | BallObject | PlatformObject | CurveObject
+
+/**
+ * Turn a drawn path (world units) into a track centerline: remove jitter, round the corners, and keep
+ * vertices at least MIN_CURVE_SEGMENT apart and at most MAX_CURVE_POINTS of them. Null if too short.
+ */
+export function curveCenterline(path: Vec3[]): Vec3[] | null {
+  if (path.length < 2 || pathLength(path) < MIN_CURVE_SEGMENT * 2) return null
+  const smooth = chaikin(approxPolyDP(path, 0.03, false) as Vec3[], 2)
+  for (let spacing = MIN_CURVE_SEGMENT; ; spacing *= 1.25) {
+    const kept: Vec3[] = [smooth[0]!]
+    for (const p of smooth.slice(1, -1)) {
+      const last = kept[kept.length - 1]!
+      if (Math.hypot(p.x - last.x, p.y - last.y) >= spacing) kept.push(p)
+    }
+    const end = smooth[smooth.length - 1]!
+    const last = kept[kept.length - 1]!
+    if (kept.length > 1 && Math.hypot(end.x - last.x, end.y - last.y) < spacing / 2) kept.pop()
+    kept.push(end)
+    if (kept.length <= MAX_CURVE_POINTS) return kept.map((p) => ({ x: p.x, y: p.y, z: 0 }))
+  }
+}
 
 let _oid = 0
 export function makeObjectId(kind: ObjectKind): string {
@@ -90,6 +123,13 @@ export function objectFromRecognition(
     const position = clearBallFromColliders(center, radius, existing)
     if (!isWithinWorldBounds(position)) return null
     return { id, kind: 'ball', createdAt, position, radius, dynamic: false }
+  }
+
+  if (candidate.kind === 'curve') {
+    const p = candidate.params as CurveParams
+    const points = curveCenterline(p.points.map((s) => screenToWorld(s, view)))
+    if (!points || !points.every(isWithinWorldBounds)) return null
+    return { id, kind: 'curve', createdAt, points, radius: CURVE_RADIUS }
   }
 
   // rectangle / square → platform (preserve tilt via rotationZ)
@@ -162,6 +202,16 @@ export function topSurfaceY(objects: SceneObject[], x: number): number | null {
   let top: number | null = null
   for (const o of objects) {
     if (o.kind === 'ball') continue
+    if (o.kind === 'curve') {
+      for (let i = 0; i < o.points.length - 1; i++) {
+        const a = o.points[i]!
+        const b = o.points[i + 1]!
+        if (x < Math.min(a.x, b.x) - o.radius - 0.2 || x > Math.max(a.x, b.x) + o.radius + 0.2) continue
+        const topY = Math.max(a.y, b.y) + o.radius
+        top = top == null ? topY : Math.max(top, topY)
+      }
+      continue
+    }
     const { center, rotationZ, halfExtents } = boxFor(o)
     const cos = Math.abs(Math.cos(rotationZ))
     const sin = Math.abs(Math.sin(rotationZ))
@@ -180,10 +230,18 @@ export function clearBallFromColliders(position: Vec3, radius: number, existing:
   return { x: position.x, y: Math.max(position.y, surfaceClear, ballMinY(radius)), z: 0 }
 }
 
-/** Whether a ball at `center` touches the box of any ramp or platform, with `margin` to spare. */
+/** Distance from a point to a curve's centerline. */
+export function distanceToCurve(point: Vec3, curve: CurveObject): number {
+  let best = Infinity
+  for (let i = 0; i < curve.points.length - 1; i++) best = Math.min(best, pointSegmentDistance(point, curve.points[i]!, curve.points[i + 1]!))
+  return best
+}
+
+/** Whether a ball at `center` touches any ramp, platform, or curve, with `margin` to spare. */
 export function ballOverlapsShapes(center: Vec3, radius: number, objects: SceneObject[], margin = 0): boolean {
   return objects.some((o) => {
     if (o.kind === 'ball') return false
+    if (o.kind === 'curve') return distanceToCurve(center, o) < o.radius + radius + margin
     const { center: c, rotationZ, halfExtents } = boxFor(o)
     const local = toLocal(center, c, rotationZ)
     const nearX = Math.max(-halfExtents.x, Math.min(halfExtents.x, local.x))
@@ -200,8 +258,8 @@ export function liftClearOfShapes(position: Vec3, radius: number, objects: Scene
 }
 
 /**
- * Topmost object under a world point, or null. Balls are checked before ramps
- * and platforms; `tolerance` widens every shape so thin ones are easy to hit.
+ * Topmost object under a world point, or null. Balls are checked before ramps,
+ * platforms, and curves; `tolerance` widens every shape so thin ones are easy to hit.
  */
 export function hitTest(objects: SceneObject[], point: Vec3, tolerance: number): SceneObject | null {
   for (let i = objects.length - 1; i >= 0; i--) {
@@ -211,6 +269,10 @@ export function hitTest(objects: SceneObject[], point: Vec3, tolerance: number):
   for (let i = objects.length - 1; i >= 0; i--) {
     const o = objects[i]!
     if (o.kind === 'ball') continue
+    if (o.kind === 'curve') {
+      if (distanceToCurve(point, o) <= o.radius + tolerance) return o
+      continue
+    }
     const { center, rotationZ, halfExtents } = boxFor(o)
     const local = toLocal(point, center, rotationZ)
     if (Math.abs(local.x) <= halfExtents.x + tolerance && Math.abs(local.y) <= halfExtents.y + tolerance) return o

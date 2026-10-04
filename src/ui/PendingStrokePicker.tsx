@@ -2,12 +2,13 @@ import type { JSX } from 'react'
 import { appStore, type ShapeChoice } from '../store/appStore'
 import { useAppState } from './hooks'
 import { shapeToObjectKind } from '../shapes/recognize'
-import { BallGlyph, CloseIcon, PlatformGlyph, RampGlyph } from './icons'
+import { BallGlyph, CloseIcon, CurveGlyph, PlatformGlyph, RampGlyph } from './icons'
 
 const CHOICES: { kind: ShapeChoice; label: string; Glyph: () => JSX.Element }[] = [
   { kind: 'ramp', label: 'Ramp', Glyph: RampGlyph },
   { kind: 'ball', label: 'Ball', Glyph: BallGlyph },
   { kind: 'platform', label: 'Platform', Glyph: PlatformGlyph },
+  { kind: 'curve', label: 'Curve', Glyph: CurveGlyph },
 ]
 
 /** Asks what an unclear stroke (shown dashed on the canvas) should become. */
@@ -22,7 +23,7 @@ export function PendingStrokePicker() {
       <p className="panel-body">
         {suggested
           ? `The dashed stroke looks most like a ${suggested}, but it is not a clear match.`
-          : 'The dashed stroke is not a clear line, circle, or rectangle.'}{' '}
+          : 'The dashed stroke is not a clear line, circle, rectangle, or smooth curve.'}{' '}
         What should it become?
       </p>
       <div className="choices">

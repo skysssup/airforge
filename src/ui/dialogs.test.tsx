@@ -98,7 +98,7 @@ it('closes the example notes', async () => {
   render(<App />)
   await user.click(screen.getByRole('button', { name: 'Examples' }))
   await user.click(screen.getByRole('menuitem', { name: 'Zigzag' }))
-  expect(screen.getByRole('complementary', { name: 'About the Zigzag example' }).textContent).toMatch(/^Example 02\/06Zigzag Three ramps/)
+  expect(screen.getByRole('complementary', { name: 'About the Zigzag example' }).textContent).toMatch(/^Example 02\/08Zigzag Three ramps/)
   await user.click(screen.getByRole('button', { name: 'Close example notes' }))
   expect(screen.queryByRole('complementary', { name: /About the/ })).toBeNull()
   expect(appStore.getState().sceneName).toBe('Zigzag')

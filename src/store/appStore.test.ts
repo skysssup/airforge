@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { appStore } from './appStore'
-import { cleanCircle, cleanDiagonalLine, cleanRectangle, ambiguousScribble } from '../test/strokes'
+import { cleanCircle, cleanDiagonalLine, cleanRectangle, ambiguousScribble, wave } from '../test/strokes'
 import { EXAMPLES, loadExampleScene } from '../examples'
 import { MAX_OBJECTS, MAX_WORLD_COORDINATE, DEFAULT_PHYSICS } from '../physics/params'
 import { clearAllLiveBallPoses, setLiveBallPose } from '../physics/livePoses'
@@ -20,6 +20,7 @@ function openRampAndBall() {
 function screenPointOf(object: SceneObject) {
   if (object.kind === 'ball') return worldToScreen(object.position, state().view)
   if (object.kind === 'platform') return worldToScreen(object.center, state().view)
+  if (object.kind === 'curve') return worldToScreen(object.points[Math.floor(object.points.length / 2)]!, state().view)
   return worldToScreen({ x: (object.start.x + object.end.x) / 2, y: (object.start.y + object.end.y) / 2 }, state().view)
 }
 
@@ -36,6 +37,16 @@ describe('drawing', () => {
     expect(kinds()).toEqual(['ramp', 'ball', 'platform'])
     expect(balls()[0]!.dynamic).toBe(false)
     expect(state().undoStack).toHaveLength(3)
+  })
+
+  it('turns a smooth wave into a curve, and an unclear stroke into a curve that follows it on request', () => {
+    appStore.endStroke(wave())
+    expect(kinds()).toEqual(['curve'])
+    expect(state().statusMessage).toBe('Added a curve.')
+    appStore.endStroke(ambiguousScribble())
+    expect(state().pending).not.toBeNull()
+    appStore.resolvePending('curve')
+    expect(kinds()).toEqual(['curve', 'curve'])
   })
 
   it('treats a click as selection instead of opening the shape picker', () => {
