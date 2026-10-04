@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.0 (2026-10-04)
+
+A redesign of the interface and of how the scene is drawn. Scene files (format version 1) and the physics are unchanged.
+
+### Changed
+
+- The interface follows a drafting-sheet design: paper and ink colors with one accent, hairline borders, Instrument Sans for text and Fragment Mono for labels and numbers. Buttons have icons and show their keyboard shortcuts.
+- The layout gives the scene the whole width. The top bar holds the scene name, the **Examples** menu, **Open**, **Save**, **Webcam**, the theme switch, and **Help**. The bottom bar holds the edit and simulation controls and a status line with the input mode, the pointer's position in world units, and the latest message.
+- The **Examples** menu lists each example with a one-line description, and an open example's notes appear in a strip under the top bar.
+- **Gravity**, **Bounce**, and **Friction** moved into a **World** panel, which also counts the scene's ramps, balls, and platforms. Escape or a click elsewhere closes it.
+- The scene is drawn as a sheet: a grid in world units, a hatched floor and side walls, ink-colored ramps and platforms with rounded edges and soft shadows, and balls in the accent color. The view now frames both walls and the floor, so balls stay on screen.
+- A ball waiting for **Drop** is drawn flat, as a circle with a center mark. A released ball is a solid sphere with a line across it that shows its spin, and it leaves a short fading trail.
+- The selected shape gets an accent outline, and the pointer turns into a hand over shapes that a click would select.
+- Webcam mode shows the mirrored camera image faintly behind the sheet with a ring at the index fingertip, instead of a small preview panel.
+- The welcome and help dialogs were redesigned.
+
+### Added
+
+- Light and dark themes. AirForge follows the system setting until you pick one, then remembers your choice.
+- An empty sheet shows what each stroke becomes: line to ramp, circle to ball, rectangle to platform.
+- Browser tests for the theme switch, the World panel, and webcam mode with a simulated camera.
+
 ## 1.1.0 (2026-10-04)
 
 Scene files are unchanged (format version 1). Files saved by 1.0.x open in 1.1.0, and files saved by 1.1.0 open in 1.0.x.
