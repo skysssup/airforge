@@ -43,16 +43,30 @@ async function save(page: Page) {
   return { name: file.suggestedFilename(), json: JSON.parse(await readFile(await file.path(), 'utf8')) }
 }
 
-const counts = (page: Page) => page.getByRole('contentinfo')
+/** Object counts from the World panel, e.g. { ramp: 1, ball: 2, platform: 0, limit: '3/40' }. */
+async function counts(page: Page) {
+  const button = page.getByRole('button', { name: 'World' })
+  const panel = page.getByRole('region', { name: 'World' })
+  await button.click()
+  const entries = await panel.locator('.counts div').evaluateAll((items) =>
+    items.map((item) => [item.querySelector('dt')!.textContent!, item.querySelector('dd')!.textContent!]),
+  )
+  await page.keyboard.press('Escape')
+  await expect(panel).toBeHidden()
+  return Object.fromEntries(
+    entries.map(([label, value]) => [label.toLowerCase().replace(/s$/, ''), label === 'Limit' ? value : Number(value)]),
+  )
+}
+
 const status = (page: Page) => page.getByRole('status')
 
 test('first visit shows the welcome dialog over a working WebGL scene', async ({ page }) => {
   await page.goto('')
-  const dialog = page.getByRole('dialog', { name: 'Welcome to AirForge' })
+  const dialog = page.getByRole('dialog', { name: 'Draw a machine, then drop a ball' })
   await expect(dialog).toBeVisible()
   await dialog.getByRole('button', { name: 'Start drawing' }).click()
   await expect(dialog).toBeHidden()
-  await expect(page.getByRole('toolbar', { name: 'AirForge controls' })).toBeVisible()
+  await expect(page.getByRole('toolbar', { name: 'Simulation' })).toBeVisible()
   expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => !!canvas.getContext('webgl2'))).toBe(true)
   await page.reload()
   await expect(dialog).toBeHidden()
@@ -72,7 +86,7 @@ test('draws, selects, deletes, undoes, and redoes shapes', async ({ page }) => {
 
   await drag(page, [at(0.1, 0.8), at(0.4, 0.8), at(0.4, 0.88), at(0.1, 0.88), at(0.1, 0.8)])
   await expect(status(page)).toHaveText('Added a platform.')
-  await expect(counts(page)).toContainText('1 ramp · 1 ball · 1 platform (3/40)')
+  expect(await counts(page)).toEqual({ ramp: 1, ball: 1, platform: 1, limit: '3/40' })
 
   await page.mouse.click(...at(0.5, 0.1))
   await expect(status(page)).toHaveText('Drag to draw. Click a shape to select it.')
@@ -81,11 +95,14 @@ test('draws, selects, deletes, undoes, and redoes shapes', async ({ page }) => {
   await page.mouse.click(...at(0.4, 0.425))
   await expect(status(page)).toHaveText('Selected ramp. Press Delete to remove it.')
   await page.keyboard.press('Delete')
-  await expect(counts(page)).toContainText('0 ramps · 1 ball · 1 platform')
+  await expect(status(page)).toHaveText('Deleted ramp.')
+  expect(await counts(page)).toMatchObject({ ramp: 0, ball: 1, platform: 1 })
   await page.keyboard.press('ControlOrMeta+z')
-  await expect(counts(page)).toContainText('1 ramp · 1 ball · 1 platform')
+  await expect(status(page)).toHaveText('Undone.')
+  expect(await counts(page)).toMatchObject({ ramp: 1, ball: 1, platform: 1 })
   await page.keyboard.press('Shift+Z')
-  await expect(counts(page)).toContainText('0 ramps · 1 ball · 1 platform')
+  await expect(status(page)).toHaveText('Redone.')
+  expect(await counts(page)).toMatchObject({ ramp: 0, ball: 1, platform: 1 })
 })
 
 test('asks about an unclear stroke and shows it until a choice is made', async ({ page }) => {
@@ -97,7 +114,7 @@ test('asks about an unclear stroke and shows it until a choice is made', async (
   await expect(page.locator('.ink.pending')).toBeVisible()
   await picker.getByRole('button', { name: 'Platform' }).click()
   await expect(picker).toBeHidden()
-  await expect(counts(page)).toContainText('1 platform')
+  expect(await counts(page)).toMatchObject({ platform: 1 })
 })
 
 test('Ramp & Ball runs in the browser: the ball lands in the cup and Restart puts it back', async ({ page }) => {
@@ -128,34 +145,67 @@ test('saves a scene file and opens it again; rejects a malformed file', async ({
   const { name, json } = await save(page)
   expect(name).toBe('zigzag.json')
   await page.getByRole('button', { name: 'Clear' }).click()
-  await expect(counts(page)).toContainText('(0/40)')
+  await expect(status(page)).toHaveText('Scene cleared. Press Undo to bring it back.')
+  expect(await counts(page)).toMatchObject({ limit: '0/40' })
   await expect(page).toHaveURL(/\/airforge\/$/)
 
   const input = page.locator('input[type=file]')
   await input.setInputFiles({ name: 'zigzag.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(json)) })
   await expect(status(page)).toHaveText('Opened “Zigzag” from zigzag.json.')
-  await expect(counts(page)).toContainText('3 ramps · 1 ball · 4 platforms (8/40)')
+  expect(await counts(page)).toEqual({ ramp: 3, ball: 1, platform: 4, limit: '8/40' })
 
   await input.setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{"format": "airforge-scene", "version": 1') })
   await expect(status(page)).toHaveText('Could not open broken.json: Malformed JSON.')
-  await expect(counts(page)).toContainText('(8/40)')
+  expect(await counts(page)).toMatchObject({ limit: '8/40' })
 })
 
 test('every example opens from the menu and from its link', async ({ page }) => {
   await open(page)
-  const menu = page.getByRole('combobox', { name: 'Open an example' })
-  const ids = await menu.locator('option:not([disabled])').evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value))
-  expect(ids).toEqual(['ramp-and-ball', 'zigzag', 'staircase', 'bounce-test', 'moon-jump', 'funnel'])
-  for (const id of ids) {
-    await menu.selectOption(id)
+  const examples = page.getByRole('button', { name: 'Examples' })
+  await examples.click()
+  const titles = await page.getByRole('menuitem').evaluateAll((items) => items.map((item) => item.querySelector('.menu-title')!.textContent))
+  expect(titles).toEqual(['Ramp & Ball', 'Zigzag', 'Staircase', 'Bounce Test', 'Moon Jump', 'Funnel'])
+  await page.keyboard.press('Escape')
+  const ids = ['ramp-and-ball', 'zigzag', 'staircase', 'bounce-test', 'moon-jump', 'funnel']
+  for (const [i, id] of ids.entries()) {
+    await examples.click()
+    await page.getByRole('menuitem', { name: titles[i]! }).click()
     await expect(page).toHaveURL(new RegExp(`\\?example=${id}$`))
     await expect(status(page)).toHaveText(/^Opened “.+”\. Press Drop \(D\) to start\.$/)
+    await expect(page.getByRole('complementary', { name: `About the ${titles[i]} example` })).toBeVisible()
   }
   await page.reload()
   await expect(page.getByRole('textbox', { name: 'Scene name' })).toHaveValue('Funnel')
 
   await page.goto('?example=no-such-example')
   await expect(status(page)).toHaveText('There is no example called “no-such-example”. Pick one from the Examples menu.')
+})
+
+test('follows the system color scheme until a theme is chosen, then remembers it', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await open(page)
+  const html = page.locator('html')
+  await expect(html).toHaveAttribute('data-theme', 'dark')
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(11, 11, 12)')
+
+  await page.getByRole('button', { name: 'Switch to light theme' }).click()
+  await expect(html).toHaveAttribute('data-theme', 'light')
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(255, 255, 255)')
+  await page.reload()
+  await expect(html).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', /^#fff(fff)?$/)
+})
+
+test('changes gravity, bounce, and friction from the World panel', async ({ page }) => {
+  await open(page, '?example=bounce-test')
+  await page.getByRole('button', { name: 'World' }).click()
+  const bounce = page.getByRole('slider', { name: 'Bounce' })
+  await expect(bounce).toHaveValue('0.85')
+  await bounce.fill('0.2')
+  await expect(page.getByRole('region', { name: 'World' }).locator('output[for="bounce"]')).toHaveText('0.20')
+  await page.keyboard.press('Escape')
+  const { json } = await save(page)
+  expect(json.physics.bounce).toBe(0.2)
 })
 
 test('keeps working on a phone-sized screen', async ({ page }) => {

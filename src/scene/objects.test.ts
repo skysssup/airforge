@@ -24,7 +24,9 @@ describe('object creation from recognition', () => {
       DEFAULT_VIEW,
     )
     const pxPerUnit = DEFAULT_VIEW.height / (2 * DEFAULT_VIEW.worldHalfHeight)
-    expect(ball(pxPerUnit * 0.5)).toMatchObject({ kind: 'ball', radius: 0.5 })
+    const half = ball(pxPerUnit * 0.5)
+    expect(half?.kind).toBe('ball')
+    expect(half?.kind === 'ball' && half.radius).toBeCloseTo(0.5, 9)
     expect(ball(1)).toMatchObject({ radius: MIN_BALL_RADIUS })
     expect(ball(10_000)).toMatchObject({ radius: MAX_BALL_RADIUS })
   })

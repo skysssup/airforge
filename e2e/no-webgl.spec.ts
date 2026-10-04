@@ -7,5 +7,5 @@ test('explains what the scene needs instead of showing a blank page', async ({ p
   await page.addInitScript(() => localStorage.setItem('airforge.tutorialDismissed', '1'))
   await page.goto('')
   await expect(page.getByRole('alert')).toContainText('AirForge needs WebGL and WebAssembly')
-  await expect(page.getByRole('toolbar', { name: 'AirForge controls' })).toBeVisible()
+  await expect(page.getByRole('toolbar', { name: 'Simulation' })).toBeVisible()
 })

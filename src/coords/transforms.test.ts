@@ -8,17 +8,17 @@ import {
 } from './transforms'
 
 describe('coordinate transforms', () => {
-  it('maps screen center to world origin', () => {
+  it('maps the screen center to x = 0 at the view center height', () => {
     const w = screenToWorld({ x: DEFAULT_VIEW.width / 2, y: DEFAULT_VIEW.height / 2 }, DEFAULT_VIEW)
     expect(w.x).toBeCloseTo(0, 5)
-    expect(w.y).toBeCloseTo(0, 5)
+    expect(w.y).toBeCloseTo(DEFAULT_VIEW.centerY, 5)
     expect(w.z).toBe(0)
   })
 
   it('maps top-left screen to +y / -x world', () => {
     const w = screenToWorld({ x: 0, y: 0 }, DEFAULT_VIEW)
     expect(w.x).toBeCloseTo(-DEFAULT_VIEW.worldHalfWidth, 5)
-    expect(w.y).toBeCloseTo(DEFAULT_VIEW.worldHalfHeight, 5)
+    expect(w.y).toBeCloseTo(DEFAULT_VIEW.centerY + DEFAULT_VIEW.worldHalfHeight, 5)
   })
 
   it('roundtrips screen ↔ world', () => {

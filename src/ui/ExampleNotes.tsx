@@ -1,20 +1,32 @@
 import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
-import { findExample } from '../examples'
+import { EXAMPLES, findExample } from '../examples'
+import { CloseIcon } from './icons'
 
-/** What the open example shows and what to try next. */
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** A strip under the top bar: what the open example shows and what to try next. */
 export function ExampleNotes() {
   const exampleId = useAppState((s) => s.exampleId)
   const example = exampleId ? findExample(exampleId) : undefined
   if (!example) return null
 
   return (
-    <aside className="example-notes" aria-label={`About the ${example.title} example`}>
-      <p>
-        <strong>{example.title}.</strong> {example.summary} <span className="muted">Try: {example.tryNext}</span>
-      </p>
-      <button type="button" className="btn small" onClick={() => appStore.closeExampleNotes()} aria-label="Close example notes">
-        Close
+    <aside className="notes" aria-label={`About the ${example.title} example`}>
+      <span className="notes-index t-ui">
+        Example {pad(EXAMPLES.indexOf(example) + 1)}
+        <span className="muted">/{pad(EXAMPLES.length)}</span>
+      </span>
+      <div className="notes-text">
+        <p>
+          <strong className="notes-title">{example.title}</strong> {example.summary}
+        </p>
+        <p className="try">
+          <span className="t-label">Try</span> {example.tryNext}
+        </p>
+      </div>
+      <button type="button" className="btn square" onClick={() => appStore.closeExampleNotes()} aria-label="Close example notes" title="Close">
+        <CloseIcon />
       </button>
     </aside>
   )

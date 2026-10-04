@@ -4,11 +4,14 @@ import {
   CAMERA_FAR,
   CAMERA_FOV_DEG,
   CAMERA_NEAR,
+  FRAME_BOTTOM,
+  FRAME_HALF_WIDTH,
+  FRAME_TOP,
   cameraDistanceFor,
   viewBoundsFor,
 } from './camera'
 import { DEFAULT_VIEW, screenToWorld, worldToScreen } from './transforms'
-import { WORLD_HALF_HEIGHT, WORLD_HALF_WIDTH } from '../physics/params'
+import { GROUND_TOP_Y, WALL_HALF_WIDTH, WALL_X, WORLD_HALF_HEIGHT, WORLD_HALF_WIDTH } from '../physics/params'
 
 const SIZES: Array<[number, number]> = [
   [1280, 720],
@@ -59,15 +62,36 @@ describe('draw-plane camera', () => {
     }
   })
 
-  it('puts the world origin at the center of a landscape viewport', () => {
+  it('centers the world horizontally', () => {
     const px = projectToPixels(renderCamera(1280, 720), 0, 0, 1280, 720)
     expect(px.x).toBeCloseTo(640, 6)
-    expect(px.y).toBeCloseTo(360, 6)
   })
 
-  it.each(SIZES)('keeps the bottom of the world region at the bottom edge at %ix%i', (width, height) => {
+  it.each(SIZES)('puts the band of ground under the floor on the bottom edge at %ix%i', (width, height) => {
     const camera = renderCamera(width, height)
-    expect(projectToPixels(camera, 0, -WORLD_HALF_HEIGHT, width, height).y).toBeCloseTo(height, 3)
+    expect(projectToPixels(camera, 0, FRAME_BOTTOM, width, height).y).toBeCloseTo(height, 3)
+    expect(projectToPixels(camera, 0, GROUND_TOP_Y, width, height).y).toBeLessThan(height)
+  })
+
+  it.each(SIZES)('shows the inner faces of both walls at %ix%i', (width, height) => {
+    const camera = renderCamera(width, height)
+    const inner = WALL_X - WALL_HALF_WIDTH
+    expect(projectToPixels(camera, -inner, 0, width, height).x).toBeGreaterThan(0)
+    expect(projectToPixels(camera, inner, 0, width, height).x).toBeLessThan(width)
+  })
+
+  it('fills the width on wide screens and the height on tall ones', () => {
+    expect(viewBoundsFor(1280, 720).worldHalfWidth).toBeCloseTo(FRAME_HALF_WIDTH, 9)
+    expect(viewBoundsFor(390, 844).worldHalfWidth).toBeCloseTo(FRAME_HALF_WIDTH, 9)
+    const short = viewBoundsFor(2560, 720)
+    expect(short.centerY + short.worldHalfHeight).toBeCloseTo(FRAME_TOP, 9)
+    expect(short.worldHalfWidth).toBeGreaterThan(FRAME_HALF_WIDTH)
+  })
+
+  it('falls back to a 16:9 frame before the canvas has a size', () => {
+    const view = viewBoundsFor(0, 0)
+    expect(view).toMatchObject({ width: 0, height: 0 })
+    expect(view.worldHalfWidth / view.worldHalfHeight).toBeCloseTo(1280 / 720, 9)
   })
 
   it.each(SIZES)('keeps the whole world region visible at %ix%i', (width, height) => {

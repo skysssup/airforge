@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Toolbar } from './Toolbar'
+import { TopBar } from './TopBar'
+import { EditControls, RunControls } from './Controls'
 import { useGlobalShortcuts } from './useGlobalShortcuts'
 import { appStore } from '../store/appStore'
 import { EXAMPLES, loadExampleScene } from '../examples'
@@ -24,7 +25,13 @@ const state = () => appStore.getState()
 
 function Harness({ dialogOpen = false }: { dialogOpen?: boolean }) {
   useGlobalShortcuts({ dialogOpen, onToggleHelp, onEscape })
-  return <Toolbar onToggleWebcam={() => {}} onOpenHelp={() => {}} />
+  return (
+    <>
+      <TopBar onOpenHelp={() => {}} />
+      <EditControls />
+      <RunControls />
+    </>
+  )
 }
 
 beforeEach(() => {

@@ -8,7 +8,7 @@
  */
 
 import type { Vec2, Vec3 } from '../events/types'
-import { WORLD_HALF_HEIGHT, WORLD_HALF_WIDTH } from '../physics/params'
+import { viewBoundsFor } from './camera'
 
 export interface ViewBounds {
   /** CSS pixel width of the drawing surface */
@@ -23,13 +23,8 @@ export interface ViewBounds {
   centerY: number
 }
 
-export const DEFAULT_VIEW: ViewBounds = {
-  width: 1280,
-  height: 720,
-  worldHalfWidth: WORLD_HALF_WIDTH,
-  worldHalfHeight: WORLD_HALF_HEIGHT,
-  centerY: 0,
-}
+/** The view until the canvas has measured itself. */
+export const DEFAULT_VIEW: ViewBounds = viewBoundsFor(1280, 720)
 
 /** Map a screen pixel to world x/y on the draw plane (z = 0). */
 export function screenToWorld(screen: Vec2, view: ViewBounds = DEFAULT_VIEW): Vec3 {

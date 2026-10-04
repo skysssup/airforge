@@ -16,6 +16,7 @@ import { DEFAULT_VIEW, screenToWorld, type ViewBounds } from '../coords/transfor
 import { clearAllLiveBallPoses, snapshotLiveBallPoses } from '../physics/livePoses'
 
 export type ShapeChoice = 'ramp' | 'ball' | 'platform'
+export type Theme = 'light' | 'dark'
 
 /** A finished stroke the recognizer could not classify with confidence. */
 export interface PendingStroke {
@@ -52,12 +53,14 @@ export interface AppState {
   /** Bumped when the whole scene is replaced so the physics world is rebuilt. */
   sceneRevision: number
   tutorialDismissed: boolean
+  theme: Theme
   webcamEnabled: boolean
   gestureLabel: string
   statusMessage: string
 }
 
 const TUTORIAL_KEY = 'airforge.tutorialDismissed'
+const THEME_KEY = 'airforge.theme'
 const MAX_HISTORY = 50
 /** Strokes whose extent stays within this many pixels are clicks, not drawings. */
 const TAP_SLOP = 6
@@ -71,6 +74,21 @@ function loadTutorialDismissed(): boolean {
   } catch {
     return false
   }
+}
+
+function savedTheme(): Theme | null {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    return saved === 'light' || saved === 'dark' ? saved : null
+  } catch {
+    return null
+  }
+}
+
+/** The saved choice, otherwise the operating system's preference. */
+function loadTheme(): Theme {
+  const prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
+  return savedTheme() ?? (prefersDark ? 'dark' : 'light')
 }
 
 function createInitialState(): AppState {
@@ -87,9 +105,10 @@ function createInitialState(): AppState {
     redoStack: [],
     sceneRevision: 0,
     tutorialDismissed: loadTutorialDismissed(),
+    theme: loadTheme(),
     webcamEnabled: false,
     gestureLabel: 'Mouse',
-    statusMessage: 'Drag on the canvas to draw a ramp, ball, or platform, or open an example.',
+    statusMessage: 'Drag on the sheet to draw a ramp, ball, or platform, or open an example.',
   }
 }
 
@@ -252,9 +271,13 @@ export const appStore = {
     addFromCandidate(candidate ?? candidateFromBounds(choice, pending.points))
   },
 
+  /** The shape under a screen point, with moving balls where Rapier last reported them. */
+  objectAt(screenPoint: Vec2): SceneObject | null {
+    return hitTest(objectsWithLivePoses(), screenToWorld(screenPoint, state.view), HIT_TOLERANCE)
+  },
+
   selectAt(screenPoint: Vec2): void {
-    const world = screenToWorld(screenPoint, state.view)
-    const hit = hitTest(objectsWithLivePoses(), world, HIT_TOLERANCE)
+    const hit = appStore.objectAt(screenPoint)
     if (!hit) {
       setState({
         selectedId: null,
@@ -426,10 +449,25 @@ export const appStore = {
     setState({ tutorialDismissed: true })
   },
 
+  /** Switch theme and remember the choice. */
+  setTheme(theme: Theme): void {
+    try {
+      localStorage.setItem(THEME_KEY, theme)
+    } catch {
+      // Without storage the choice lasts for this visit only.
+    }
+    setState({ theme })
+  },
+
+  /** Follow the operating system unless the user picked a theme. */
+  followSystemTheme(dark: boolean): void {
+    if (!savedTheme()) setState({ theme: dark ? 'dark' : 'light' })
+  },
+
   setWebcamEnabled(on: boolean): void {
     setState({
       webcamEnabled: on,
-      gestureLabel: on ? 'Webcam starting…' : 'Mouse',
+      gestureLabel: on ? 'Webcam · starting' : 'Mouse',
       statusMessage: on ? 'Starting the webcam…' : 'Mouse drawing.',
     })
   },

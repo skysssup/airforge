@@ -3,6 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { WebcamPanel } from './WebcamPanel'
 import { appStore } from '../store/appStore'
+import { pointerStore } from './pointer'
+import { landmarkToScreen, screenToWorld } from '../coords/transforms'
 
 const mocks = vi.hoisted(() => ({ open: vi.fn(), stop: vi.fn(), init: vi.fn(), close: vi.fn(), detect: vi.fn() }))
 vi.mock('../camera/media', () => ({ openCamera: mocks.open, stopCamera: mocks.stop, CameraError: class extends Error {}, cameraErrorHint: () => '' }))
@@ -64,4 +66,30 @@ it('shuts the camera session down when detection fails after startup', async () 
   expect(mocks.close).toHaveBeenCalled()
   expect(appStore.getState().webcamEnabled).toBe(false)
   expect(appStore.getState().statusMessage).toContain('detector crashed')
+})
+it('moves the fingertip ring to the tracked index fingertip and reports its position', async () => {
+  const frames: FrameRequestCallback[] = []
+  vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => frames.push(cb)))
+  vi.spyOn(HTMLMediaElement.prototype, 'readyState', 'get').mockReturnValue(4)
+  mocks.open.mockResolvedValue({} as MediaStream)
+  mocks.init.mockResolvedValue(undefined)
+  const hand = Array.from({ length: 21 }, (_, i) => ({ x: 0.3 + i * 0.001, y: 0.4, z: 0 }))
+  // The first detection runs as soon as the tracker is ready; later ones run on animation frames.
+  mocks.detect.mockReturnValueOnce(null).mockReturnValueOnce(hand).mockReturnValue(null)
+  appStore.setWebcamEnabled(true)
+  const { container } = render(<WebcamPanel active onClose={() => {}} />)
+  await waitFor(() => expect(frames).toHaveLength(1))
+  const ring = container.querySelector<HTMLElement>('.fingertip')!
+  expect(ring.dataset.gesture).toBe('none')
+
+  act(() => frames[0]!(0))
+  const { view } = appStore.getState()
+  const tip = landmarkToScreen(hand[8]!, view, true)
+  expect(ring.style.transform).toBe(`translate(${tip.x}px, ${tip.y}px)`)
+  expect(ring.dataset.gesture).toBe('settling')
+  expect(pointerStore.get()).toEqual(screenToWorld(tip, view))
+
+  act(() => frames[1]!(16))
+  expect(ring.dataset.gesture).toBe('none')
+  expect(pointerStore.get()).toBeNull()
 })

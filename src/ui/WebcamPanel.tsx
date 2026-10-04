@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { openCamera, stopCamera, CameraError, cameraErrorHint } from '../camera/media'
 import type { HandTracker } from '../hand/landmarker'
 import { classifyRawGesture, createGestureMachine, stepGestureMachine, type StableGesture } from '../hand/gestures'
-import { landmarkToScreen } from '../coords/transforms'
+import { landmarkToScreen, screenToWorld } from '../coords/transforms'
 import { appStore } from '../store/appStore'
+import { pointerStore } from './pointer'
 import { addRawPoint, cancelStroke, createStroke, endStroke, type StrokeState } from '../stroke/capture'
 
 interface Props {
@@ -12,15 +13,16 @@ interface Props {
 }
 
 const GESTURE_LABELS: Record<NonNullable<StableGesture>, string> = {
-  draw: 'Webcam · drawing (index finger)',
-  pen_up: 'Webcam · pen up (pinch)',
-  erase: 'Webcam · cancel (open palm)',
+  draw: 'Webcam · drawing',
+  pen_up: 'Webcam · pen up',
+  erase: 'Webcam · cancel',
 }
 
 const HAND_LOST = 'Hand lost, so the stroke was cancelled.'
 
 export function WebcamPanel({ active, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const cursorRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -67,17 +69,26 @@ export function WebcamPanel({ active, onClose }: Props) {
       const landmarks = video.readyState >= 2 ? tracker.detect(video, performance.now()) : null
 
       if (!landmarks) {
+        cursorRef.current?.setAttribute('data-gesture', 'none')
+        pointerStore.set(null)
         const { cancelStroke: lost, handLost } = stepGestureMachine(machine, null, false)
-        if (handLost) appStore.setGestureLabel('Webcam · no hand in view')
+        if (handLost) appStore.setGestureLabel('Webcam · no hand')
         if (lost) stopStroke(false, HAND_LOST)
         return
       }
 
       const { stable } = stepGestureMachine(machine, classifyRawGesture(landmarks), true)
-      appStore.setGestureLabel(stable ? GESTURE_LABELS[stable] : 'Webcam · hold a gesture steady…')
+      appStore.setGestureLabel(stable ? GESTURE_LABELS[stable] : 'Webcam · hold steady')
       const tip = landmarks[8]
       if (!tip) return
-      const point = landmarkToScreen(tip, appStore.getState().view, true)
+      const { view } = appStore.getState()
+      const point = landmarkToScreen(tip, view, true)
+      const cursor = cursorRef.current
+      if (cursor) {
+        cursor.style.transform = `translate(${point.x}px, ${point.y}px)`
+        cursor.setAttribute('data-gesture', stable ?? 'settling')
+      }
+      pointerStore.set(screenToWorld(point, view))
 
       if (stable !== 'draw') {
         stopStroke(stable === 'pen_up', 'Stroke cancelled (open palm).')
@@ -147,18 +158,17 @@ export function WebcamPanel({ active, onClose }: Props) {
   if (!active) return null
 
   return (
-    <aside className="webcam-panel" aria-label="Webcam preview">
-      <div className="webcam-header">
-        <strong>Webcam</strong>
-        <button type="button" className="btn small" onClick={onClose}>
+    <>
+      {/* The mirrored camera image fills the sheet faintly, so the fingertip lines up with what it draws. */}
+      <video ref={videoRef} playsInline muted className="webcam-video" aria-hidden="true" />
+      <div ref={cursorRef} className="fingertip" data-gesture="none" aria-hidden="true" />
+      <aside className="panel webcam" aria-label="Webcam">
+        <span className={`dot${ready ? ' live' : ''}`} aria-hidden="true" />
+        <span className="t-ui">{ready ? 'Hand tracking on' : 'Loading the hand tracker'}</span>
+        <button type="button" className="btn" onClick={onClose}>
           Use mouse
         </button>
-      </div>
-      <div className="webcam-frame">
-        <video ref={videoRef} playsInline muted className="webcam-video" />
-        {!ready && <div className="webcam-status">Loading the hand tracker…</div>}
-      </div>
-      <p className="muted small">Mirrored view. Index finger draws, pinch finishes, open palm cancels. The mouse still works.</p>
-    </aside>
+      </aside>
+    </>
   )
 }

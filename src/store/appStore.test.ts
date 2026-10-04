@@ -106,6 +106,14 @@ describe('selection', () => {
     expect(state().selectedId).toBe(ball.id)
   })
 
+  it('finds the shape under a point without selecting it', () => {
+    openRampAndBall()
+    const ball = balls()[0]!
+    expect(appStore.objectAt(screenPointOf(ball))?.id).toBe(ball.id)
+    expect(appStore.objectAt({ x: 1, y: 1 })).toBeNull()
+    expect(state().selectedId).toBeNull()
+  })
+
   it('clears the selection when clicking empty space', () => {
     openRampAndBall()
     appStore.endStroke([screenPointOf(balls()[0]!)])

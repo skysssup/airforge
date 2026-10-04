@@ -22,8 +22,8 @@ it('focuses the welcome dialog, keeps Tab inside it, and blocks scene shortcuts 
   const start = screen.getByRole('button', { name: 'Start drawing' })
   const example = screen.getByRole('button', { name: 'Open the Ramp & Ball example' })
   expect(document.activeElement).toBe(start)
-  expect(container.querySelector('.app-shell')!.hasAttribute('inert')).toBe(true)
-  expect(screen.queryByRole('toolbar')).toBeNull()
+  expect(container.querySelector('.app')!.hasAttribute('inert')).toBe(true)
+  expect(screen.queryAllByRole('toolbar')).toHaveLength(0)
 
   await user.tab({ shift: true })
   expect(document.activeElement).toBe(example)
@@ -34,8 +34,8 @@ it('focuses the welcome dialog, keeps Tab inside it, and blocks scene shortcuts 
 
   await user.keyboard('{Enter}')
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(container.querySelector('.app-shell')!.hasAttribute('inert')).toBe(false)
-  expect(screen.getByRole('toolbar')).toBeTruthy()
+  expect(container.querySelector('.app')!.hasAttribute('inert')).toBe(false)
+  expect(screen.getByRole('toolbar', { name: 'Simulation' })).toBeTruthy()
   expect(localStorage.getItem('airforge.tutorialDismissed')).toBe('1')
 })
 
@@ -64,7 +64,7 @@ it.each(['{Escape}', '{Enter}', ' '])('restores focus to the Help button when He
   await user.click(help)
   const close = screen.getByRole('button', { name: 'Close' })
   expect(document.activeElement).toBe(close)
-  expect(container.querySelector('.app-shell')!.hasAttribute('inert')).toBe(true)
+  expect(container.querySelector('.app')!.hasAttribute('inert')).toBe(true)
   await user.tab()
   expect(document.activeElement).toBe(close)
   expect(screen.getByRole('dialog').textContent).toMatch(/Restart: put released balls back/)
@@ -76,7 +76,7 @@ it.each(['{Escape}', '{Enter}', ' '])('restores focus to the Help button when He
   await user.keyboard(key)
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(help)
-  expect(container.querySelector('.app-shell')!.hasAttribute('inert')).toBe(false)
+  expect(container.querySelector('.app')!.hasAttribute('inert')).toBe(false)
   expect(appStore.getState().physics.paused).toBe(false)
 })
 
@@ -96,7 +96,9 @@ it('toggles Help with ? and suspends webcam input while it is open', async () =>
 it('closes the example notes', async () => {
   const user = userEvent.setup()
   render(<App />)
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Open an example' }), 'zigzag')
+  await user.click(screen.getByRole('button', { name: 'Examples' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Zigzag' }))
+  expect(screen.getByRole('complementary', { name: 'About the Zigzag example' }).textContent).toMatch(/^Example 02\/06Zigzag Three ramps/)
   await user.click(screen.getByRole('button', { name: 'Close example notes' }))
   expect(screen.queryByRole('complementary', { name: /About the/ })).toBeNull()
   expect(appStore.getState().sceneName).toBe('Zigzag')
