@@ -32,8 +32,11 @@ Thumbs.db
 *.tsbuildinfo
 node_modules/.tmp/
 
-# Test / vitest
+# Test / vitest / playwright
 .vitest/
+test-results/
+playwright-report/
+blob-report/
 
 # Webcam / media captures — never commit footage
 *.mp4
