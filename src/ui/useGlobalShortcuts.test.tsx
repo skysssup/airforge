@@ -81,6 +81,27 @@ describe('global shortcuts', () => {
     expect(state().objects).toHaveLength(0)
   })
 
+  it('moves the selected shape with arrows (Shift for ten times as far), turns it with [ ] { }, and copies it with Ctrl or Cmd+D', async () => {
+    const user = userEvent.setup()
+    appStore.loadScene(loadExampleScene(EXAMPLES[0]!), { message: 'opened' })
+    render(<Harness />)
+    const platform = state().objects.find((o) => o.id === 'cup-floor')
+    if (platform?.kind !== 'platform') throw new Error('expected the cup floor')
+    appStore.selectAt(worldToScreen(platform.center, state().view))
+    await user.keyboard('{ArrowRight}{Shift>}{ArrowUp}{/Shift}')
+    await user.keyboard('[[[[}') // user-event writes a literal [ as [[
+    const moved = state().objects.find((o) => o.id === platform.id)
+    if (moved?.kind !== 'platform') throw new Error('expected the cup floor')
+    expect(moved.center.x).toBeCloseTo(platform.center.x + 0.1)
+    expect(moved.center.y).toBeCloseTo(platform.center.y + 1)
+    expect(moved.rotationZ).toBeCloseTo(platform.rotationZ + ((5 + 5 - 15) * Math.PI) / 180)
+    const count = state().objects.length
+    await user.keyboard('{Control>}d{/Control}{Meta>}d{/Meta}')
+    expect(state().objects).toHaveLength(count + 2)
+    await user.keyboard('d')
+    expect(state().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
+  })
+
   it('uses Escape to discard an unclear stroke, then to clear the selection', async () => {
     const user = userEvent.setup()
     render(<Harness />)

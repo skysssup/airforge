@@ -32,6 +32,9 @@ export const AddBallIcon = () => <Icon><circle cx="8" cy="8" r="5.5" /><path d="
 export const DeleteIcon = () => <Icon><path d="M2.5 4.5h11M6.2 4.5V2.8h3.6v1.7M4 4.5l.8 9h6.4l.8-9" /></Icon>
 export const ClearIcon = () => <Icon><path d="M2.5 2.5h11v11h-11z" /><path d="m5.5 5.5 5 5m0-5-5 5" /></Icon>
 export const SaveIcon = () => <Icon><path d="M8 2.5v8M4.8 7.5 8 10.7l3.2-3.2M2.5 13.5h11" /></Icon>
+export const RotateLeftIcon = () => <Icon><path d="M4.2 5.2a5 5 0 1 1-.9 4.6" /><path d="M3.8 2.2v3.3h3.3" /></Icon>
+export const RotateRightIcon = () => <Icon><path d="M11.8 5.2a5 5 0 1 0 .9 4.6" /><path d="M12.2 2.2v3.3H8.9" /></Icon>
+export const DuplicateIcon = () => <Icon><path d="M5.5 5.5h8v8h-8z" /><path d="M10.5 5.5v-3h-8v8h3" /></Icon>
 export const LinkIcon = () => <Icon><path d="m6.5 9.5 3-3" /><path d="m7.2 4.3 1.4-1.4a2.8 2.8 0 0 1 4 4l-1.4 1.4" /><path d="m8.8 11.7-1.4 1.4a2.8 2.8 0 0 1-4-4l1.4-1.4" /></Icon>
 export const OpenIcon = () => <Icon><path d="M8 10.5v-8M4.8 5.7 8 2.5l3.2 3.2M2.5 13.5h11" /></Icon>
 export const CameraIcon = () => <Icon><path d="M1.5 4.5h9v7h-9z" /><path d="m10.5 7 4-2.2v6.4l-4-2.2" /></Icon>

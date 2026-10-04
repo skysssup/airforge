@@ -9,6 +9,9 @@ const KEYS: [string[], string][] = [
   [['Z'], 'Undo (also Ctrl+Z or Cmd+Z)'],
   [['Shift', 'Z'], 'Redo (also Ctrl+Shift+Z or Cmd+Shift+Z)'],
   [['Delete'], 'Delete the selected shape'],
+  [['←', '→', '↑', '↓'], 'Move the selected shape 0.1 units (with Shift, 1 unit)'],
+  [['[', ']'], 'Rotate the selected shape 5° (with Shift, 15°)'],
+  [['Ctrl', 'D'], 'Duplicate the selected shape (Cmd+D on macOS)'],
   [['Esc'], 'Discard an unclear stroke, deselect, or close this dialog'],
   [['?'], 'Open or close this help'],
 ]
@@ -28,7 +31,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           <ul>
             <li>Drag a line for a ramp, a circle for a ball, or a rectangle for a platform. Ball size and platform tilt follow your drawing.</li>
             <li>If a stroke is unclear it stays dashed and you choose what it becomes.</li>
-            <li>Click a shape to select it.</li>
+            <li>Click a shape to select it, then drag it to move it; hold Shift to snap its center to the half-unit grid. The bar beside it rotates or duplicates it.</li>
             <li>Gravity, Bounce, and Friction apply to the whole scene and are saved with it.</li>
           </ul>
           <h3 className="t-label">Saving and sharing</h3>

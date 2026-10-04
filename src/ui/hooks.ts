@@ -1,6 +1,7 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react'
 import { appStore, type AppState } from '../store/appStore'
 import { MouseStrokeAdapter } from '../input/mouse'
+import { screenToWorld } from '../coords/transforms'
 
 const whole = (state: AppState) => state
 
@@ -26,6 +27,20 @@ export function useMouseDrawing(enabled: boolean) {
         move: (points) => appStore.setLiveStroke(points),
         end: (points) => appStore.endStroke(points),
         cancel: () => appStore.cancelStroke(),
+        // Pressing on the selected shape drags it instead of drawing.
+        grab: (point) => {
+          const { selectedId, view } = appStore.getState()
+          if (!selectedId || appStore.objectAt(point)?.id !== selectedId || !appStore.beginMove()) return null
+          const from = screenToWorld(point, view)
+          return {
+            move: (to, event) => {
+              const world = screenToWorld(to, appStore.getState().view)
+              appStore.moveBy(world.x - from.x, world.y - from.y, event.shiftKey)
+            },
+            end: () => appStore.endMove(),
+            cancel: () => appStore.cancelMove(),
+          }
+        },
       })
       adapter.attach(el)
       adapterRef.current = adapter

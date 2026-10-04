@@ -743,6 +743,10 @@ kbd {
   touch-action: none;
 }
 
+.drawing-overlay[data-over-selected] {
+  cursor: move;
+}
+
 .drawing-overlay[data-over-shape] {
   cursor: pointer;
 }
@@ -889,6 +893,17 @@ kbd {
 
 .picker .choices .btn + .btn {
   border-left: 1px solid var(--line-strong);
+}
+
+/* Rotate and duplicate buttons beside the selected shape. */
+.selection-bar {
+  position: absolute;
+  z-index: 24;
+  transform: translateX(-50%);
+}
+
+.selection-bar > .btn.square {
+  width: 34px;
 }
 
 /* ── webcam ─────────────────────────────────────────────── */

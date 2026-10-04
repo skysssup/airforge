@@ -255,3 +255,98 @@ describe('settings', () => {
     expect(balls()[0]!.releasedFrom).toEqual(balls()[0]!.position)
   })
 })
+
+describe('editing a selected shape', () => {
+  const select = (kind: SceneObject['kind']) => {
+    const object = state().objects.find((o) => o.kind === kind)!
+    appStore.selectAt(screenPointOf(object))
+    expect(state().selectedId).toBe(object.id)
+    return object
+  }
+  const current = (id: string) => state().objects.find((o) => o.id === id)!
+
+  it('drags a shape as one undoable edit, and Undo puts it back', () => {
+    openRampAndBall()
+    const ramp = select('ramp')
+    const before = state().undoStack.length
+    expect(appStore.beginMove()).toBe(true)
+    appStore.moveBy(0.5, 0.2)
+    appStore.moveBy(1, -0.5)
+    appStore.endMove()
+    expect(current(ramp.id)).toMatchObject({ start: { x: ramp.kind === 'ramp' ? ramp.start.x + 1 : 0 } })
+    expect(state().undoStack).toHaveLength(before + 1)
+    expect(state().statusMessage).toBe('Moved ramp.')
+    appStore.undo()
+    expect(current(ramp.id)).toEqual(ramp)
+  })
+
+  it('snaps the dragged shape to the half-unit grid with Shift, and a drag that ends where it began is no edit', () => {
+    openRampAndBall()
+    const platform = select('platform')
+    appStore.beginMove()
+    appStore.moveBy(0.13, 0.31, true)
+    const moved = current(platform.id)
+    expect(moved.kind === 'platform' && moved.center.x * 2).toBeCloseTo(Math.round(moved.kind === 'platform' ? moved.center.x * 2 : 0))
+    appStore.moveBy(0, 0)
+    const before = state().undoStack.length
+    appStore.endMove()
+    expect(state().undoStack).toHaveLength(before)
+  })
+
+  it('cancels a drag without leaving a trace, and refuses to move a released ball', () => {
+    openRampAndBall()
+    const platform = select('platform')
+    appStore.beginMove()
+    appStore.moveBy(2, 2)
+    appStore.cancelMove()
+    expect(current(platform.id)).toEqual(platform)
+    appStore.drop()
+    select('ball')
+    expect(appStore.beginMove()).toBe(false)
+    appStore.nudgeSelected(1, 0)
+    expect(state().statusMessage).toMatch(/Freeze or Restart to move it/)
+  })
+
+  it('lifts a ball dragged into a platform just clear of it', () => {
+    openRampAndBall()
+    const ball = select('ball')
+    const cupFloor = state().objects.find((o) => o.id === 'cup-floor')!
+    if (cupFloor.kind !== 'platform' || ball.kind !== 'ball') throw new Error('unexpected scene')
+    appStore.beginMove()
+    appStore.moveBy(cupFloor.center.x - ball.position.x, cupFloor.center.y - ball.position.y)
+    appStore.endMove()
+    const placed = current(ball.id)
+    if (placed.kind !== 'ball') throw new Error('expected a ball')
+    expect(placed.position.x).toBeCloseTo(cupFloor.center.x)
+    expect(placed.position.y).toBeGreaterThan(cupFloor.center.y + cupFloor.halfExtents.y + ball.radius)
+    expect(placed.position.y).toBeLessThan(cupFloor.center.y + cupFloor.halfExtents.y + ball.radius + 0.3)
+  })
+
+  it('nudges, rotates, and duplicates, one undo step each', () => {
+    openRampAndBall()
+    const platform = select('platform')
+    if (platform.kind !== 'platform') throw new Error('expected a platform')
+    const before = state().undoStack.length
+    appStore.nudgeSelected(0.1, 0)
+    appStore.rotateSelected(Math.PI / 12)
+    expect(current(platform.id)).toMatchObject({ center: { x: platform.center.x + 0.1 }, rotationZ: platform.rotationZ + Math.PI / 12 })
+    expect(state().statusMessage).toBe('Rotated platform 15° counterclockwise.')
+    appStore.duplicateSelected()
+    expect(state().objects).toHaveLength(rampAndBall.objects.length + 1)
+    expect(state().selectedId).not.toBe(platform.id)
+    expect(state().undoStack).toHaveLength(before + 3)
+    select('ball')
+    appStore.rotateSelected(0.5)
+    expect(state().statusMessage).toBe('Balls have no orientation to change.')
+  })
+
+  it('will not duplicate past the object limit', () => {
+    openRampAndBall()
+    select('platform')
+    while (state().objects.length < MAX_OBJECTS) appStore.duplicateSelected()
+    appStore.duplicateSelected()
+    expect(state().objects).toHaveLength(MAX_OBJECTS)
+    expect(state().statusMessage).toMatch(/limited to 40 objects/)
+  })
+})
+

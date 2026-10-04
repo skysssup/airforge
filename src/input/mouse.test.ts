@@ -59,3 +59,26 @@ it('cancels an in-progress stroke when detached and stops listening', () => {
   expect(handlers.end).not.toHaveBeenCalled()
   expect(handlers.start).toHaveBeenCalledTimes(1)
 })
+
+it('hands a press on a grabbable shape to the grab handlers, past a small slop', () => {
+  const grab = { move: vi.fn(), end: vi.fn(), cancel: vi.fn() }
+  const grabbing = new MouseStrokeAdapter({ ...handlers, grab: (p) => (p.x < 100 ? grab : null) })
+  const box = document.createElement('div')
+  box.setPointerCapture = vi.fn()
+  grabbing.attach(box)
+  box.dispatchEvent(pointer('pointerdown', 50, 50))
+  box.dispatchEvent(pointer('pointermove', 53, 52))
+  expect(grab.move).not.toHaveBeenCalled()
+  box.dispatchEvent(pointer('pointermove', 80, 70))
+  expect(grab.move).toHaveBeenCalledWith({ x: 80, y: 70 }, expect.any(PointerEvent))
+  box.dispatchEvent(pointer('pointerup', 80, 70))
+  expect(grab.end).toHaveBeenCalledTimes(1)
+  expect(handlers.start).not.toHaveBeenCalled()
+  box.dispatchEvent(pointer('pointerdown', 150, 50))
+  box.dispatchEvent(pointer('lostpointercapture', 150, 50))
+  expect(handlers.start).toHaveBeenCalledTimes(1)
+  box.dispatchEvent(pointer('pointerdown', 40, 40))
+  box.dispatchEvent(pointer('pointercancel', 40, 40))
+  expect(grab.cancel).toHaveBeenCalledTimes(1)
+})
+

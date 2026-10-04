@@ -1,5 +1,6 @@
 import type { Vec2 } from '../events/types'
-import { cloneObjects, createBallAt, hitTest, objectFromRecognition, type SceneObject } from '../scene/objects'
+import { cloneObjects, createBallAt, hitTest, liftClearOfShapes, objectFromRecognition, type SceneObject } from '../scene/objects'
+import { copyOf, snapMove, transformObject } from '../scene/transform'
 import type { PhysicsParams } from '../physics/params'
 import {
   BOUNCE_MAX,
@@ -67,6 +68,12 @@ const TAP_SLOP = 6
 /** Extra world-space margin when clicking thin shapes. */
 const HIT_TOLERANCE = 0.15
 const SPAWN_POINT = { x: -3, y: 3.5, z: 0 }
+/** World step that a Shift-drag snaps a shape's center to. */
+export const SNAP_STEP = 0.5
+/** World distance one arrow key moves the selected shape; Shift moves ten times as far. */
+export const NUDGE_STEP = 0.1
+/** How far a duplicate lands from its original. */
+const COPY_OFFSET = { x: 0.6, y: -0.6 }
 
 function loadTutorialDismissed(): boolean {
   try {
@@ -114,6 +121,8 @@ function createInitialState(): AppState {
 
 let state: AppState = createInitialState()
 const listeners = new Set<() => void>()
+/** A drag in progress: the scene before it, for Undo, and the selected object as it was. */
+let drag: { before: SceneSnapshot; original: SceneObject } | null = null
 
 function setState(partial: Partial<AppState>): void {
   state = { ...state, ...partial }
@@ -145,6 +154,7 @@ function commit(partial: Partial<AppState>): void {
 /** Replace the whole scene; the physics world restarts from the given positions. */
 function replaceScene(scene: SceneSnapshot, extra: Partial<AppState>): void {
   clearAllLiveBallPoses()
+  drag = null
   setState({
     objects: scene.objects,
     physics: { ...scene.physics },
@@ -202,6 +212,32 @@ function candidateFromBounds(kind: ShapeChoice, points: Vec2[]): ShapeCandidate 
   }
   const corners = [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }]
   return { kind: 'rectangle', params: { corners }, quality: 0, metrics: {} }
+}
+
+function selectedObject(): SceneObject | undefined {
+  return state.objects.find((o) => o.id === state.selectedId)
+}
+
+/** Released balls belong to the physics engine; everything else can be moved. */
+function isMovable(object: SceneObject): boolean {
+  return !(object.kind === 'ball' && object.dynamic)
+}
+
+function withObject(next: SceneObject): SceneObject[] {
+  return state.objects.map((o) => (o.id === next.id ? next : o))
+}
+
+/** A moved ball must not start inside a ramp or platform. */
+function settled(object: SceneObject): SceneObject {
+  if (object.kind !== 'ball') return object
+  const others = state.objects.filter((o) => o.id !== object.id)
+  return { ...object, position: liftClearOfShapes(object.position, object.radius, others) }
+}
+
+function selectionHint(object: SceneObject): string {
+  if (!isMovable(object)) return 'Selected ball. Freeze or Restart to move it; Delete removes it.'
+  if (object.kind === 'ball') return 'Selected ball. Drag to move it; arrow keys nudge, Delete removes it.'
+  return `Selected ${object.kind}. Drag to move it, [ and ] rotate it, Delete removes it.`
 }
 
 function isTap(points: Vec2[]): boolean {
@@ -285,7 +321,81 @@ export const appStore = {
       })
       return
     }
-    setState({ selectedId: hit.id, statusMessage: `Selected ${hit.kind}. Press Delete to remove it.` })
+    setState({ selectedId: hit.id, statusMessage: selectionHint(hit) })
+  },
+
+  /** Start dragging the selected shape; false if nothing movable is selected. */
+  beginMove(): boolean {
+    const object = selectedObject()
+    if (!object || !isMovable(object)) return false
+    drag = { before: snapshot(), original: object }
+    return true
+  },
+
+  /** Place the dragged shape (dx, dy) world units from where the drag started; `snap` puts its center on the grid. */
+  moveBy(dx: number, dy: number, snap = false): void {
+    if (!drag) return
+    const offset = snap ? snapMove(drag.original, dx, dy, SNAP_STEP) : { dx, dy }
+    setState({ objects: withObject(transformObject(drag.original, { ...offset, angle: 0 })) })
+  },
+
+  /** Finish a drag as one undoable edit. */
+  endMove(): void {
+    if (!drag) return
+    const { before, original } = drag
+    drag = null
+    const current = state.objects.find((o) => o.id === original.id)
+    if (!current || JSON.stringify(current) === JSON.stringify(original)) return
+    setState({
+      objects: withObject(settled(current)),
+      undoStack: [...state.undoStack, before].slice(-MAX_HISTORY),
+      redoStack: [],
+      statusMessage: `Moved ${current.kind}.`,
+    })
+  },
+
+  cancelMove(): void {
+    if (!drag) return
+    const { original } = drag
+    drag = null
+    setState({ objects: withObject(original) })
+  },
+
+  nudgeSelected(dx: number, dy: number): void {
+    const object = selectedObject()
+    if (!object) return
+    if (!isMovable(object)) {
+      setState({ statusMessage: selectionHint(object) })
+      return
+    }
+    commit({ objects: withObject(settled(transformObject(object, { dx, dy, angle: 0 }))), statusMessage: `Moved ${object.kind}.` })
+  },
+
+  /** Rotate the selected ramp or platform counterclockwise by `angle` radians around its center. */
+  rotateSelected(angle: number): void {
+    const object = selectedObject()
+    if (!object) return
+    if (object.kind === 'ball') {
+      setState({ statusMessage: 'Balls have no orientation to change.' })
+      return
+    }
+    const degrees = Math.round((angle * 180) / Math.PI)
+    commit({
+      objects: withObject(transformObject(object, { dx: 0, dy: 0, angle })),
+      statusMessage: `Rotated ${object.kind} ${Math.abs(degrees)}° ${degrees > 0 ? 'counterclockwise' : 'clockwise'}.`,
+    })
+  },
+
+  /** Copy the selected shape a little down and to the right, and select the copy. */
+  duplicateSelected(): void {
+    const object = selectedObject()
+    if (!object) return
+    if (state.objects.length >= MAX_OBJECTS) {
+      setState({ statusMessage: `Scenes are limited to ${MAX_OBJECTS} objects. Delete or undo something first.` })
+      return
+    }
+    const copy = settled(copyOf(object, COPY_OFFSET.x, COPY_OFFSET.y))
+    commit({ objects: [...state.objects, copy], selectedId: copy.id, statusMessage: `Duplicated ${object.kind}. The copy is selected.` })
   },
 
   clearSelection(): void {
@@ -483,6 +593,7 @@ export const appStore = {
   /** Test helper */
   _resetForTests(overrides: Partial<AppState> = {}): void {
     clearAllLiveBallPoses()
+    drag = null
     state = { ...createInitialState(), tutorialDismissed: true, ...overrides }
     for (const listener of listeners) listener()
   },

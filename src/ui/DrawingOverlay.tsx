@@ -17,19 +17,22 @@ export function DrawingOverlay({ enabled }: { enabled: boolean }) {
       ref={refCallback}
       className="drawing-overlay"
       role="application"
-      aria-label="Drawing area. Drag to draw a line, circle, or rectangle; click a shape to select it."
+      aria-label="Drawing area. Drag to draw a line, circle, or rectangle; click a shape to select it, then drag it to move it."
       onPointerMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect()
         const point = { x: e.clientX - rect.left, y: e.clientY - rect.top }
         const { view, liveStroke } = appStore.getState()
         pointerStore.set(screenToWorld(point, view))
-        // A pointer cursor over shapes says a click selects instead of drawing.
-        const overShape = liveStroke.length === 0 && appStore.objectAt(point) !== null
-        e.currentTarget.toggleAttribute('data-over-shape', overShape)
+        // A pointer cursor over shapes says a click selects instead of drawing; a move cursor, that a drag moves it.
+        const hit = liveStroke.length === 0 ? appStore.objectAt(point) : null
+        const selected = hit !== null && hit.id === appStore.getState().selectedId
+        e.currentTarget.toggleAttribute('data-over-shape', hit !== null && !selected)
+        e.currentTarget.toggleAttribute('data-over-selected', selected)
       }}
       onPointerLeave={(e) => {
         pointerStore.set(null)
         e.currentTarget.removeAttribute('data-over-shape')
+        e.currentTarget.removeAttribute('data-over-selected')
       }}
     >
       <svg className="ink-svg" aria-hidden="true">

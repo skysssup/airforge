@@ -93,7 +93,7 @@ test('draws, selects, deletes, undoes, and redoes shapes', async ({ page }) => {
   await expect(page.getByRole('region', { name: /Choose a shape/ })).toBeHidden()
 
   await page.mouse.click(...at(0.4, 0.425))
-  await expect(status(page)).toHaveText('Selected ramp. Press Delete to remove it.')
+  await expect(status(page)).toHaveText('Selected ramp. Drag to move it, [ and ] rotate it, Delete removes it.')
   await page.keyboard.press('Delete')
   await expect(status(page)).toHaveText('Deleted ramp.')
   expect(await counts(page)).toMatchObject({ ramp: 0, ball: 1, platform: 1 })
@@ -103,6 +103,34 @@ test('draws, selects, deletes, undoes, and redoes shapes', async ({ page }) => {
   await page.keyboard.press('Shift+Z')
   await expect(status(page)).toHaveText('Redone.')
   expect(await counts(page)).toMatchObject({ ramp: 0, ball: 1, platform: 1 })
+})
+
+test('moves a selected shape by dragging, turns and copies it from the bar beside it, and undoes each step', async ({ page }) => {
+  await open(page)
+  const { at } = await drawingArea(page)
+  await drag(page, [at(0.2, 0.7), at(0.5, 0.7), at(0.5, 0.78), at(0.2, 0.78), at(0.2, 0.7)])
+  await expect(status(page)).toHaveText('Added a platform.')
+  const original = (await save(page)).json.objects[0]
+
+  await page.mouse.click(...at(0.35, 0.74))
+  const bar = page.getByRole('toolbar', { name: 'Selected platform' })
+  await expect(bar).toBeVisible()
+  await drag(page, [at(0.35, 0.74), at(0.55, 0.5)])
+  await expect(status(page)).toHaveText('Moved platform.')
+  const moved = (await save(page)).json.objects[0]
+  expect(moved.center.x).toBeGreaterThan(original.center.x + 1)
+  expect(moved.center.y).toBeGreaterThan(original.center.y + 1)
+  expect(moved.halfExtents).toEqual(original.halfExtents)
+
+  await bar.getByRole('button', { name: 'Rotate clockwise' }).click()
+  await expect(status(page)).toHaveText('Rotated platform 15° clockwise.')
+  await bar.getByRole('button', { name: 'Duplicate' }).click()
+  expect(await counts(page)).toMatchObject({ platform: 2 })
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ControlOrMeta+z')
+  const restored = (await save(page)).json.objects
+  expect(restored).toHaveLength(1)
+  expect(restored[0].center.x).toBeCloseTo(original.center.x, 6)
+  expect(restored[0].rotationZ).toBeCloseTo(original.rotationZ, 6)
 })
 
 test('asks about an unclear stroke and shows it until a choice is made', async ({ page }) => {

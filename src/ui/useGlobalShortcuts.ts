@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { appStore } from '../store/appStore'
+import { NUDGE_STEP, appStore } from '../store/appStore'
 
 const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
 const ACTIVATABLE = 'button, a[href], summary, [role="button"]'
@@ -9,6 +9,12 @@ interface Handlers {
   onToggleHelp: () => void
   onEscape: () => void
 }
+
+/** Rotation per press of [ or ], in degrees; with Shift ({ or }) it is three times as much. */
+export const ROTATE_STEP = 5
+
+const ARROWS: Record<string, [number, number]> = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1] }
+const ROTATIONS: Record<string, number> = { '[': ROTATE_STEP, ']': -ROTATE_STEP, '{': ROTATE_STEP * 3, '}': -ROTATE_STEP * 3 }
 
 const LETTER_ACTIONS: Record<string, () => void> = {
   d: () => appStore.drop(),
@@ -48,7 +54,28 @@ export function useGlobalShortcuts({ dialogOpen, onToggleHelp, onEscape }: Handl
         else appStore.undo()
         return
       }
+      // With a shape selected, Ctrl/Cmd+D duplicates it; otherwise the browser keeps the shortcut.
+      const hasSelection = appStore.getState().selectedId !== null
+      if (command && key === 'd' && hasSelection) {
+        e.preventDefault()
+        appStore.duplicateSelected()
+        return
+      }
       if (command) return
+
+      const arrow = ARROWS[key]
+      if (arrow && hasSelection) {
+        e.preventDefault()
+        const step = NUDGE_STEP * (e.shiftKey ? 10 : 1)
+        appStore.nudgeSelected(arrow[0] * step, arrow[1] * step)
+        return
+      }
+      const degrees = ROTATIONS[e.key]
+      if (degrees !== undefined && hasSelection) {
+        e.preventDefault()
+        appStore.rotateSelected((degrees * Math.PI) / 180)
+        return
+      }
 
       if (key === ' ') {
         if (target?.closest(ACTIVATABLE)) return

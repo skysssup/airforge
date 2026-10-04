@@ -180,6 +180,25 @@ export function clearBallFromColliders(position: Vec3, radius: number, existing:
   return { x: position.x, y: Math.max(position.y, surfaceClear, ballMinY(radius)), z: 0 }
 }
 
+/** Whether a ball at `center` touches the box of any ramp or platform, with `margin` to spare. */
+export function ballOverlapsShapes(center: Vec3, radius: number, objects: SceneObject[], margin = 0): boolean {
+  return objects.some((o) => {
+    if (o.kind === 'ball') return false
+    const { center: c, rotationZ, halfExtents } = boxFor(o)
+    const local = toLocal(center, c, rotationZ)
+    const nearX = Math.max(-halfExtents.x, Math.min(halfExtents.x, local.x))
+    const nearY = Math.max(-halfExtents.y, Math.min(halfExtents.y, local.y))
+    return Math.hypot(local.x - nearX, local.y - nearY) < radius + margin
+  })
+}
+
+/** Raise a placed ball just enough to clear the floor and any shape it overlaps; a clear ball stays where it is. */
+export function liftClearOfShapes(position: Vec3, radius: number, objects: SceneObject[]): Vec3 {
+  let y = Math.max(position.y, ballMinY(radius))
+  for (let i = 0; i < 2000 && ballOverlapsShapes({ ...position, y }, radius, objects, SPAWN_CLEARANCE); i++) y += 0.02
+  return { x: position.x, y, z: 0 }
+}
+
 /**
  * Topmost object under a world point, or null. Balls are checked before ramps
  * and platforms; `tolerance` widens every shape so thin ones are easy to hit.
