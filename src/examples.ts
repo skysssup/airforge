@@ -94,10 +94,12 @@ export function openExample(example: Example): void {
   setExampleParam(example.id)
 }
 
+/** Record the open example in the address bar. A shared scene in the fragment no longer describes what is on screen, so it goes. */
 export function setExampleParam(id: string | null): void {
   const url = new URL(window.location.href)
   if (id) url.searchParams.set('example', id)
   else url.searchParams.delete('example')
+  url.hash = ''
   window.history.replaceState(window.history.state, '', url)
 }
 

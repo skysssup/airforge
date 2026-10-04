@@ -31,6 +31,11 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             <li>Click a shape to select it.</li>
             <li>Gravity, Bounce, and Friction apply to the whole scene and are saved with it.</li>
           </ul>
+          <h3 className="t-label">Saving and sharing</h3>
+          <ul>
+            <li>Save downloads the scene as a JSON file, and Open loads one.</li>
+            <li>Copy link puts the whole scene into a link. Opening the link loads the scene; nothing is uploaded.</li>
+          </ul>
           <h3 className="t-label">Webcam (optional)</h3>
           <ul>
             <li>

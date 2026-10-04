@@ -1,6 +1,7 @@
 import { appStore } from '../store/appStore'
 import { exportSceneJson, importSceneJson } from '../io/serialize'
 import { MAX_JSON_BYTES } from '../io/schema'
+import { SCENE_PARAM, canShareLinks, decodeSceneToken, encodeSceneToken, sceneTokenFromHash } from '../io/shareLink'
 import { setExampleParam } from '../examples'
 
 function fileNameFor(sceneName: string): string {
@@ -42,4 +43,52 @@ export async function openSceneFile(file: File): Promise<void> {
   }
   setExampleParam(null)
   appStore.loadScene(result, { message: `Opened “${result.name}” from ${file.name}.` })
+}
+
+/** A link to this page that opens the scene as it is on screen. */
+export async function sceneLink(): Promise<string> {
+  const { name, objects, physics } = appStore.exportState()
+  const token = await encodeSceneToken(exportSceneJson(name, objects, physics))
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.hash = `${SCENE_PARAM}=${token}`
+  return url.toString()
+}
+
+/** Copy a scene link; if the clipboard is unavailable, put the link in the address bar instead. */
+export async function copySceneLink(): Promise<void> {
+  if (!canShareLinks()) {
+    appStore.setStatus('This browser cannot create scene links. Use Save instead.')
+    return
+  }
+  const link = await sceneLink()
+  const { sceneName } = appStore.getState()
+  try {
+    await navigator.clipboard.writeText(link)
+    appStore.setStatus(`Copied a link to “${sceneName}” (${link.length.toLocaleString('en-US')} characters).`)
+  } catch {
+    window.history.replaceState(window.history.state, '', link)
+    appStore.setStatus('The clipboard is not available here, so the link is in the address bar.')
+  }
+}
+
+/** Open the scene carried by the address bar's #scene=… fragment, if there is one. */
+export async function openSceneLinkFromUrl(): Promise<void> {
+  const token = sceneTokenFromHash(window.location.hash)
+  if (!token) return
+  appStore.skipTutorial()
+  if (!canShareLinks()) {
+    appStore.setStatus('This browser cannot open scene links. Try a current Chrome, Edge, Firefox, or Safari.')
+    return
+  }
+  const decoded = await decodeSceneToken(token)
+  const result = decoded.ok ? importSceneJson(decoded.json) : decoded
+  if (!result.ok) {
+    appStore.setStatus(`Could not open the scene in this link: ${result.error}`)
+    return
+  }
+  const url = new URL(window.location.href)
+  url.searchParams.delete('example')
+  window.history.replaceState(window.history.state, '', url)
+  appStore.loadScene(result, { message: `Opened “${result.name}” from a link. Press Drop (D) to start.` })
 }

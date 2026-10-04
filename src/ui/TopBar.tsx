@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { appStore } from '../store/appStore'
 import { useAppState } from './hooks'
 import { EXAMPLES, openExample } from '../examples'
-import { openSceneFile, saveScene } from './sceneFiles'
-import { CameraIcon, ChevronIcon, HelpIcon, OpenIcon, SaveIcon, ThemeIcon } from './icons'
+import { copySceneLink, openSceneFile, saveScene } from './sceneFiles'
+import { CameraIcon, ChevronIcon, HelpIcon, LinkIcon, OpenIcon, SaveIcon, ThemeIcon } from './icons'
 
 export function Mark() {
   return (
@@ -169,6 +169,9 @@ export function TopBar({ onOpenHelp }: Props) {
         </button>
         <button type="button" className="btn square" aria-label="Save" title="Download the scene as a JSON file" onClick={saveScene}>
           <SaveIcon />
+        </button>
+        <button type="button" className="btn square" aria-label="Copy link" title="Copy a link that opens this scene" onClick={() => void copySceneLink()}>
+          <LinkIcon />
         </button>
         <input
           ref={fileRef}

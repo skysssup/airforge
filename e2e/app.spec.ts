@@ -159,6 +159,25 @@ test('saves a scene file and opens it again; rejects a malformed file', async ({
   expect(await counts(page)).toMatchObject({ limit: '8/40' })
 })
 
+test('copies a link that opens the same scene in another tab; a damaged link changes nothing', async ({ page, context, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Playwright grants clipboard access only in Chromium')
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await open(page, '?example=staircase')
+  await page.getByRole('button', { name: 'Copy link' }).click()
+  await expect(status(page)).toContainText('Copied a link to “Staircase”')
+  const link = await page.evaluate(() => navigator.clipboard.readText())
+  expect(link).toMatch(/\/airforge\/#scene=[A-Za-z0-9_-]+$/)
+
+  const other = await context.newPage()
+  await other.goto(link)
+  await expect(other.getByRole('status')).toHaveText('Opened “Staircase” from a link. Press Drop (D) to start.')
+  expect(await counts(other)).toEqual(await counts(page))
+
+  await other.goto(link.replace(/#scene=.*/, '#scene=not-a-scene'))
+  await expect(other.getByRole('status')).toContainText('Could not open the scene in this link: The link is damaged')
+  await other.close()
+})
+
 test('every example opens from the menu and from its link', async ({ page }) => {
   await open(page)
   const examples = page.getByRole('button', { name: 'Examples' })
