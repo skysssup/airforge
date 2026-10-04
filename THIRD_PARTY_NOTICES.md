@@ -8,12 +8,19 @@ own license file in `node_modules` (or its repository) is the authoritative text
 | Package | Version | Role | License |
 |---------|---------|------|---------|
 | `react`, `react-dom`, `scheduler` | 19.x | UI | MIT |
-| `three` | 0.186 | WebGL rendering | MIT |
+| `three` | 0.186 | WebGL rendering, including the `RoundedBoxGeometry` and `RoomEnvironment` examples modules | MIT |
 | `@react-three/fiber` (with `its-fine`, `zustand`, `suspend-react`) | 9.x | React renderer for three.js | MIT |
 | `@react-three/rapier` | 2.2 | React bindings for Rapier | MIT (stated in the pmndrs/react-three-rapier repository; the npm package ships no license file) |
 | `@dimforge/rapier3d-compat` | 0.19.2 | Rapier physics engine compiled to WebAssembly | Apache-2.0 |
 | `three-stdlib` | 2.x | three.js helpers used by `@react-three/rapier` | MIT |
 | `@mediapipe/tasks-vision` | 1.0.1 | Hand landmark detection (loaded only when the webcam is turned on) | Apache-2.0 |
+
+## Fonts
+
+| Font | Files | License |
+|------|-------|---------|
+| Instrument Sans (variable, weights 400–500), Copyright 2022 The Instrument Sans Project Authors | `src/assets/fonts/instrument-sans-var.woff2` | SIL Open Font License 1.1, full text in `src/assets/fonts/OFL-InstrumentSans.txt` |
+| Fragment Mono (regular), Copyright 2022 The Fragment-Mono Project Authors | `src/assets/fonts/fragment-mono-400.woff2` | SIL Open Font License 1.1, full text in `src/assets/fonts/OFL-FragmentMono.txt` |
 
 ## Downloaded at runtime (webcam mode only)
 
