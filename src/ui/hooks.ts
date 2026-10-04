@@ -2,48 +2,34 @@ import { useCallback, useRef, useSyncExternalStore } from 'react'
 import { appStore, type AppState } from '../store/appStore'
 import { MouseStrokeAdapter } from '../input/mouse'
 
-export function useAppState(): AppState {
-  return useSyncExternalStore(
-    appStore.subscribe,
-    appStore.getState,
-    appStore.getState,
-  )
+const whole = (state: AppState) => state
+
+/** Subscribe to the store; pass a selector that returns a state field to re-render only when it changes. */
+export function useAppState(): AppState
+export function useAppState<T>(select: (state: AppState) => T): T
+export function useAppState<T>(select: (state: AppState) => T | AppState = whole): T | AppState {
+  const getSnapshot = () => select(appStore.getState())
+  return useSyncExternalStore(appStore.subscribe, getSnapshot, getSnapshot)
 }
 
-/** Attach mouse stroke adapter to a DOM element; feeds appStore. */
+/** Ref callback that turns pointer drags on the element into strokes while enabled. */
 export function useMouseDrawing(enabled: boolean) {
   const adapterRef = useRef<MouseStrokeAdapter | null>(null)
 
-  const refCallback = useCallback(
+  return useCallback(
     (el: HTMLElement | null) => {
-      if (adapterRef.current) {
-        adapterRef.current.detach()
-        adapterRef.current = null
-      }
+      adapterRef.current?.detach()
+      adapterRef.current = null
       if (!el || !enabled) return
-
-      const adapter = new MouseStrokeAdapter()
-      adapter.onEvent((ev) => {
-        if (ev.type === 'STROKE_STARTED') {
-          appStore.beginStroke(ev.source, ev.point)
-        } else if (ev.type === 'POINT_ADDED') {
-          appStore.setLiveStroke(
-            (adapter.getCurrentPoints().length
-              ? adapter.getCurrentPoints()
-              : [...appStore.getState().liveStroke, ev.point]),
-            'mouse',
-          )
-        } else if (ev.type === 'STROKE_ENDED') {
-          appStore.endStroke(ev.source, ev.points)
-        } else if (ev.type === 'STROKE_CANCELLED') {
-          appStore.cancelStroke(ev.source, ev.reason)
-        }
+      const adapter = new MouseStrokeAdapter({
+        start: (point) => appStore.beginStroke(point),
+        move: (points) => appStore.setLiveStroke(points),
+        end: (points) => appStore.endStroke(points),
+        cancel: () => appStore.cancelStroke(),
       })
       adapter.attach(el)
       adapterRef.current = adapter
     },
     [enabled],
   )
-
-  return refCallback
 }

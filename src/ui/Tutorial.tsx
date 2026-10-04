@@ -1,44 +1,37 @@
 import { appStore } from '../store/appStore'
+import { EXAMPLES, openExample } from '../examples'
 import { Dialog } from './Dialog'
 
 export function Tutorial() {
   return (
     <Dialog labelledBy="tutorial-title" className="tutorial">
       <h2 id="tutorial-title">Welcome to AirForge</h2>
-      <p className="lede">
-        Draw shapes in the air — or with a mouse — and forge them into Rapier physics bodies.
-      </p>
+      <p className="lede">Sketch on the canvas and each stroke becomes a Rapier physics body.</p>
       <ol>
         <li>
-          Draw a <strong>diagonal</strong> on the canvas with the mouse → forges a <em>ramp</em>.
-          Mouse drawing works immediately; webcam is optional from the toolbar.
+          Drag a <strong>line</strong> for a ramp, a <strong>circle</strong> for a ball, or a <strong>rectangle</strong> for a platform.
         </li>
         <li>
-          Draw a <strong>circle</strong> or press <strong>Add ball</strong>.
+          Press <strong>Drop</strong> (<kbd>D</kbd>) to release the balls, and <strong>Restart</strong> (<kbd>R</kbd>) to put them back.
         </li>
         <li>
-          Press <strong>Drop ball</strong> — watch it roll and collide.
-        </li>
-        <li>
-          Tweak gravity / bounce / friction. Use <strong>Reset</strong> or <strong>Undo</strong>.
-        </li>
-        <li>
-          Toolbar webcam: index draws, pinch = pen up, palm cancels.
+          Click a shape to select it and press <kbd>Delete</kbd> to remove it. <kbd>Z</kbd> undoes, <kbd>Shift</kbd>+<kbd>Z</kbd> redoes.
         </li>
       </ol>
-      <div className="modal-actions">
+      <p className="muted small">The six examples in the Examples menu show what you can build. Press <kbd>?</kbd> for all controls.</p>
+      <div className="button-row">
         <button type="button" className="btn primary" onClick={() => appStore.dismissTutorial()}>
-          Start forging
+          Start drawing
         </button>
         <button
           type="button"
           className="btn"
           onClick={() => {
             appStore.dismissTutorial()
-            appStore.loadRampAndBall()
+            openExample(EXAMPLES[0]!)
           }}
         >
-          Load Ramp &amp; Ball demo
+          Open the Ramp &amp; Ball example
         </button>
       </div>
     </Dialog>

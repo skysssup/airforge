@@ -1,0 +1,224 @@
+{
+  "format": "airforge-scene",
+  "version": 1,
+  "name": "Funnel",
+  "exportedAt": "2026-10-04T00:00:00.000Z",
+  "physics": {
+    "gravity": 9.81,
+    "bounce": 0.35,
+    "friction": 0.55,
+    "paused": false
+  },
+  "objects": [
+    {
+      "id": "funnel-left",
+      "kind": "ramp",
+      "createdAt": 0,
+      "start": {
+        "x": -6.4,
+        "y": 1.6,
+        "z": 0
+      },
+      "end": {
+        "x": -1.1,
+        "y": -1,
+        "z": 0
+      },
+      "width": 0.28,
+      "thickness": 0.35
+    },
+    {
+      "id": "funnel-right",
+      "kind": "ramp",
+      "createdAt": 0,
+      "start": {
+        "x": 6.4,
+        "y": 1.6,
+        "z": 0
+      },
+      "end": {
+        "x": 1.1,
+        "y": -1,
+        "z": 0
+      },
+      "width": 0.28,
+      "thickness": 0.35
+    },
+    {
+      "id": "box-left",
+      "kind": "platform",
+      "createdAt": 0,
+      "center": {
+        "x": -2.4,
+        "y": -2.33,
+        "z": 0
+      },
+      "halfExtents": {
+        "x": 1.67,
+        "y": 0.12,
+        "z": 0.2
+      },
+      "rotationZ": 1.570796
+    },
+    {
+      "id": "box-right",
+      "kind": "platform",
+      "createdAt": 0,
+      "center": {
+        "x": 2.4,
+        "y": -2.33,
+        "z": 0
+      },
+      "halfExtents": {
+        "x": 1.67,
+        "y": 0.12,
+        "z": 0.2
+      },
+      "rotationZ": 1.570796
+    },
+    {
+      "id": "ball-1",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -4.5,
+        "y": 3.0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-2",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -2.7,
+        "y": 3.0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-3",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -0.9,
+        "y": 3.0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-4",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 0.9,
+        "y": 3.0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-5",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 2.7,
+        "y": 3.0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-6",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 4.5,
+        "y": 3.0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-7",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -4.05,
+        "y": 3.9,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-8",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -2.25,
+        "y": 3.9,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-9",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -0.45,
+        "y": 3.9,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-10",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 1.35,
+        "y": 3.9,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-11",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 3.15,
+        "y": 3.9,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-12",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 4.95,
+        "y": 3.9,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    }
+  ]
+}

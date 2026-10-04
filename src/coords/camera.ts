@@ -1,16 +1,21 @@
 import { WORLD_HALF_HEIGHT, WORLD_HALF_WIDTH } from '../physics/params'
 import type { ViewBounds } from './transforms'
 
-export const CAMERA_FOV_DEG = 42
+export const CAMERA_FOV_DEG = 24
 export const CAMERA_NEAR = 0.1
 export const CAMERA_FAR = 200
 
 const TAN_HALF_FOV = Math.tan((CAMERA_FOV_DEG * Math.PI) / 360)
 
+/**
+ * Fit the ±WORLD_HALF_WIDTH × ±WORLD_HALF_HEIGHT region into the viewport.
+ * Extra width is split between both sides; extra height (portrait screens)
+ * goes above the scene so the floor stays near the bottom edge.
+ */
 export function viewBoundsFor(width: number, height: number): ViewBounds {
   const aspect = width > 0 && height > 0 ? width / height : WORLD_HALF_WIDTH / WORLD_HALF_HEIGHT
   const worldHalfHeight = Math.max(WORLD_HALF_HEIGHT, WORLD_HALF_WIDTH / aspect)
-  return { width, height, worldHalfWidth: worldHalfHeight * aspect, worldHalfHeight }
+  return { width, height, worldHalfWidth: worldHalfHeight * aspect, worldHalfHeight, centerY: worldHalfHeight - WORLD_HALF_HEIGHT }
 }
 
 export function cameraDistanceFor(view: ViewBounds): number {

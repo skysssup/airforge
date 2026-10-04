@@ -1,0 +1,50 @@
+{
+  "format": "airforge-scene",
+  "version": 1,
+  "name": "Bounce Test",
+  "exportedAt": "2026-10-04T00:00:00.000Z",
+  "physics": {
+    "gravity": 9.81,
+    "bounce": 0.85,
+    "friction": 0.55,
+    "paused": false
+  },
+  "objects": [
+    {
+      "id": "ball-low",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": -4,
+        "y": 0,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-middle",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 0,
+        "y": 1.8,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    },
+    {
+      "id": "ball-high",
+      "kind": "ball",
+      "createdAt": 0,
+      "position": {
+        "x": 4,
+        "y": 3.6,
+        "z": 0
+      },
+      "radius": 0.35,
+      "dynamic": false
+    }
+  ]
+}

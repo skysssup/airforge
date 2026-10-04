@@ -1,7 +1,7 @@
 {
   "format": "airforge-scene",
   "version": 1,
-  "name": "Ramp & Ball",
+  "name": "Staircase",
   "exportedAt": "2026-10-04T00:00:00.000Z",
   "physics": {
     "gravity": 9.81,
@@ -11,45 +11,76 @@
   },
   "objects": [
     {
-      "id": "ramp",
-      "kind": "ramp",
+      "id": "step-1",
+      "kind": "platform",
       "createdAt": 0,
-      "start": {
-        "x": -6.5,
+      "center": {
+        "x": -5.6,
         "y": 2.6,
         "z": 0
       },
-      "end": {
-        "x": 1.5,
-        "y": -1.6,
-        "z": 0
-      },
-      "width": 0.28,
-      "thickness": 0.35
-    },
-    {
-      "id": "cup-floor",
-      "kind": "platform",
-      "createdAt": 0,
-      "center": {
-        "x": 4.4,
-        "y": -3,
-        "z": 0
-      },
       "halfExtents": {
-        "x": 1.6,
+        "x": 1.5,
         "y": 0.12,
         "z": 0.2
       },
-      "rotationZ": 0
+      "rotationZ": -0.06
     },
     {
-      "id": "cup-left",
+      "id": "step-2",
       "kind": "platform",
       "createdAt": 0,
       "center": {
-        "x": 2.8,
-        "y": -2.6,
+        "x": -2.6,
+        "y": 1,
+        "z": 0
+      },
+      "halfExtents": {
+        "x": 1.5,
+        "y": 0.12,
+        "z": 0.2
+      },
+      "rotationZ": -0.06
+    },
+    {
+      "id": "step-3",
+      "kind": "platform",
+      "createdAt": 0,
+      "center": {
+        "x": 0.4,
+        "y": -0.6,
+        "z": 0
+      },
+      "halfExtents": {
+        "x": 1.5,
+        "y": 0.12,
+        "z": 0.2
+      },
+      "rotationZ": -0.06
+    },
+    {
+      "id": "step-4",
+      "kind": "platform",
+      "createdAt": 0,
+      "center": {
+        "x": 3.4,
+        "y": -2.2,
+        "z": 0
+      },
+      "halfExtents": {
+        "x": 1.5,
+        "y": 0.12,
+        "z": 0.2
+      },
+      "rotationZ": -0.06
+    },
+    {
+      "id": "bin-left",
+      "kind": "platform",
+      "createdAt": 0,
+      "center": {
+        "x": 4.6,
+        "y": -3.6,
         "z": 0
       },
       "halfExtents": {
@@ -60,16 +91,16 @@
       "rotationZ": 1.570796
     },
     {
-      "id": "cup-right",
+      "id": "bin-right",
       "kind": "platform",
       "createdAt": 0,
       "center": {
-        "x": 6,
-        "y": -2.3,
+        "x": 7.4,
+        "y": -3.4,
         "z": 0
       },
       "halfExtents": {
-        "x": 0.7,
+        "x": 0.6,
         "y": 0.12,
         "z": 0.2
       },
@@ -80,8 +111,8 @@
       "kind": "ball",
       "createdAt": 0,
       "position": {
-        "x": -6,
-        "y": 3.4,
+        "x": -6.6,
+        "y": 3.5,
         "z": 0
       },
       "radius": 0.35,

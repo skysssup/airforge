@@ -1,7 +1,4 @@
-/**
- * getUserMedia wrapper with typed permission / device errors.
- * Always keep a mouse fallback — webcam is optional.
- */
+/** getUserMedia wrapper that turns browser errors into messages a user can act on. */
 
 export type CameraErrorCode =
   | 'not_supported'
@@ -112,6 +109,6 @@ export function cameraErrorHint(code: CameraErrorCode): string {
     case 'not_supported':
       return 'Switch browsers or use mouse drawing.'
     default:
-      return 'Fall back to mouse drawing — the hero demo does not need a camera.'
+      return 'Mouse and touch drawing still work without a camera.'
   }
 }

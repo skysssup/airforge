@@ -60,7 +60,8 @@ export interface RecognitionResult {
 const MIN_LINE_LENGTH = 30
 const MIN_CIRCLE_RADIUS = 15
 const MIN_RECT_PERIMETER = 100
-const MIN_POINTS_LINE = 5
+/** Two points are enough for a line: a quick mouse flick may only produce a few pointer events. */
+const MIN_POINTS_LINE = 2
 const MIN_POINTS_CIRCLE = 8
 const MIN_POINTS_RECT = 15
 

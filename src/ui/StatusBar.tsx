@@ -1,21 +1,19 @@
 import { useAppState } from './hooks'
-
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`
-}
+import { count } from '../store/appStore'
+import { MAX_OBJECTS } from '../physics/params'
 
 export function StatusBar() {
-  const { statusMessage, objects } = useAppState()
+  const statusMessage = useAppState((s) => s.statusMessage)
+  const objects = useAppState((s) => s.objects)
   const ramps = objects.filter((o) => o.kind === 'ramp').length
   const balls = objects.filter((o) => o.kind === 'ball').length
-  const platforms = objects.filter((o) => o.kind === 'platform').length
+  const platforms = objects.length - ramps - balls
 
   return (
-    <footer className="status-bar" role="status" aria-live="polite">
-      <span>{statusMessage}</span>
+    <footer className="status-bar">
+      <span role="status">{statusMessage}</span>
       <span className="muted">
-        {plural(ramps, 'ramp', 'ramps')} · {plural(balls, 'ball', 'balls')} ·{' '}
-        {plural(platforms, 'platform', 'platforms')}
+        {count(ramps, 'ramp')} · {count(balls, 'ball')} · {count(platforms, 'platform')} ({objects.length}/{MAX_OBJECTS})
       </span>
     </footer>
   )

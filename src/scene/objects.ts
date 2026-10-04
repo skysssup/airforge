@@ -1,15 +1,15 @@
-/**
- * Scene object model: ramp, ball, platform.
- * Geometry is derived from recognized shapes / user actions in world space.
- */
+/** Scene object model (ramp, ball, platform) and the geometry helpers that place them. */
 
 import type { Vec3, ObjectKind } from '../events/types'
 import type { CircleParams, LineParams, RectParams, ShapeCandidate } from '../shapes/recognize'
 import { shapeToObjectKind } from '../shapes/recognize'
 import { screenToWorld, type ViewBounds, DEFAULT_VIEW } from '../coords/transforms'
+import { boxFor } from '../physics/world'
 import {
   BALL_RADIUS,
+  MAX_BALL_RADIUS,
   MESH_THICKNESS,
+  MIN_BALL_RADIUS,
   SPAWN_CLEARANCE,
   ballMinY,
   MAX_OBJECTS,
@@ -28,8 +28,9 @@ export interface RampObject extends SceneObjectBase {
   /** World-space endpoints of the ramp centerline */
   start: Vec3
   end: Vec3
-  /** Half-thickness of the box collider along the surface normal (visual width) */
+  /** Half-thickness of the box collider along the surface normal */
   width: number
+  /** Full depth along Z */
   thickness: number
 }
 
@@ -37,15 +38,17 @@ export interface BallObject extends SceneObjectBase {
   kind: 'ball'
   position: Vec3
   radius: number
-  /** If false, ball is kinematic/static preview until Drop */
+  /** Waiting balls (false) hold still until Drop releases them. */
   dynamic: boolean
+  /** Where Drop released the ball; Restart moves it back here. Not saved to files. */
+  releasedFrom?: Vec3
 }
 
 export interface PlatformObject extends SceneObjectBase {
   kind: 'platform'
   /** World-space center */
   center: Vec3
-  /** Half extents (x, y thickness, z) — y is thin for a flat platform */
+  /** Half extents (x along the platform, y thickness, z depth) */
   halfExtents: Vec3
   /** Rotation around Z in radians */
   rotationZ: number
@@ -59,11 +62,10 @@ export function makeObjectId(kind: ObjectKind): string {
   return `${kind}_${Date.now().toString(36)}_${_oid}`
 }
 
-/** Build a SceneObject from a recognition candidate + stroke in screen space. */
+/** Build a SceneObject from a recognition candidate whose params are in screen pixels. */
 export function objectFromRecognition(
   candidate: ShapeCandidate,
   view: ViewBounds = DEFAULT_VIEW,
-  mirrored = false,
   existing: SceneObject[] = [],
 ): SceneObject | null {
   if (existing.length >= MAX_OBJECTS) return null
@@ -74,73 +76,49 @@ export function objectFromRecognition(
 
   if (candidate.kind === 'line') {
     const p = candidate.params as LineParams
-    const start = screenToWorld({ x: p.x1, y: p.y1 }, view, mirrored)
-    const end = screenToWorld({ x: p.x2, y: p.y2 }, view, mirrored)
+    const start = screenToWorld({ x: p.x1, y: p.y1 }, view)
+    const end = screenToWorld({ x: p.x2, y: p.y2 }, view)
     if (!isWithinWorldBounds(start) || !isWithinWorldBounds(end)) return null
-    return {
-      id,
-      kind: 'ramp',
-      createdAt,
-      start,
-      end,
-      width: 0.28,
-      thickness: MESH_THICKNESS,
-    }
+    return { id, kind: 'ramp', createdAt, start, end, width: 0.28, thickness: MESH_THICKNESS }
   }
 
   if (candidate.kind === 'circle') {
     const p = candidate.params as CircleParams
-    const center = screenToWorld({ x: p.cx, y: p.cy }, view, mirrored)
-    const position = clearBallFromColliders(
-      { x: center.x, y: center.y, z: 0 },
-      BALL_RADIUS,
-      existing,
-    )
+    const center = screenToWorld({ x: p.cx, y: p.cy }, view)
+    const drawnRadius = (p.radius / view.height) * 2 * view.worldHalfHeight
+    const radius = Math.min(MAX_BALL_RADIUS, Math.max(MIN_BALL_RADIUS, drawnRadius))
+    const position = clearBallFromColliders(center, radius, existing)
     if (!isWithinWorldBounds(position)) return null
-    return {
-      id,
-      kind: 'ball',
-      createdAt,
-      position,
-      radius: BALL_RADIUS,
-      dynamic: false,
-    }
+    return { id, kind: 'ball', createdAt, position, radius, dynamic: false }
   }
 
   // rectangle / square → platform (preserve tilt via rotationZ)
   const p = candidate.params as RectParams
-  const worldCorners = p.corners.map((c) => screenToWorld(c, view, mirrored))
+  const worldCorners = p.corners.map((c) => screenToWorld(c, view))
   if (!worldCorners.every(isWithinWorldBounds)) return null
   const cx = worldCorners.reduce((s, c) => s + c.x, 0) / worldCorners.length
   const cy = worldCorners.reduce((s, c) => s + c.y, 0) / worldCorners.length
-  // Longest edge defines the platform orientation (avoid flattening tilted rects).
+  // The longest edge sets the platform's orientation, so tilted rectangles stay tilted.
   let bestLen = -1
   let edgeDx = 1
   let edgeDy = 0
   for (let i = 0; i < worldCorners.length; i++) {
     const a = worldCorners[i]!
     const b = worldCorners[(i + 1) % worldCorners.length]!
-    const dx = b.x - a.x
-    const dy = b.y - a.y
-    const len = Math.hypot(dx, dy)
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
     if (len > bestLen) {
       bestLen = len
-      edgeDx = dx
-      edgeDy = dy
+      edgeDx = b.x - a.x
+      edgeDy = b.y - a.y
     }
   }
   const rotationZ = Math.atan2(edgeDy, edgeDx)
-  const cos = Math.cos(-rotationZ)
-  const sin = Math.sin(-rotationZ)
   let maxU = 0
   let maxV = 0
   for (const c of worldCorners) {
-    const dx = c.x - cx
-    const dy = c.y - cy
-    const u = dx * cos - dy * sin
-    const v = dx * sin + dy * cos
-    maxU = Math.max(maxU, Math.abs(u))
-    maxV = Math.max(maxV, Math.abs(v))
+    const local = toLocal(c, { x: cx, y: cy, z: 0 }, rotationZ)
+    maxU = Math.max(maxU, Math.abs(local.x))
+    maxV = Math.max(maxV, Math.abs(local.y))
   }
   const halfAlong = Math.max(maxU, 0.4)
   const halfThick = Math.max(Math.min(maxV, 0.35), 0.12)
@@ -155,7 +133,7 @@ export function objectFromRecognition(
   }
 }
 
-/** Create a ball from the "Add ball" control. */
+/** Create a waiting (or already released) ball at a position, lifted clear of other colliders. */
 export function createBallAt(
   position: Vec3,
   existing: SceneObject[] = [],
@@ -168,79 +146,65 @@ export function createBallAt(
     id: makeObjectId('ball'),
     kind: 'ball',
     createdAt: Date.now(),
-    position: { x: cleared.x, y: cleared.y, z: 0 },
+    position: cleared,
     radius: BALL_RADIUS,
     dynamic,
+    ...(dynamic && { releasedFrom: cleared }),
   }
 }
 
 /**
- * Approximate top Y of static surfaces under a given X (for spawn clearance).
- * Uses the world AABB of the same rotated cuboid PhysicsWorld mounts, so
- * steep / near-vertical ramps cannot leave a ball embedded in the collider.
+ * Top Y of the static surfaces whose world AABB spans x (for spawn clearance).
+ * Uses the same rotated cuboids as the physics world, so steep ramps cannot
+ * leave a ball embedded in a collider.
  */
 export function topSurfaceY(objects: SceneObject[], x: number): number | null {
   let top: number | null = null
   for (const o of objects) {
-    if (o.kind === 'platform') {
-      const cos = Math.cos(o.rotationZ)
-      const sin = Math.sin(o.rotationZ)
-      const hx = o.halfExtents.x
-      const hy = o.halfExtents.y
-      const aabbHalfX = Math.abs(hx * cos) + Math.abs(hy * sin)
-      if (x >= o.center.x - aabbHalfX - 0.2 && x <= o.center.x + aabbHalfX + 0.2) {
-        const aabbHalfY = Math.abs(hx * sin) + Math.abs(hy * cos)
-        const topY = o.center.y + aabbHalfY
-        top = top == null ? topY : Math.max(top, topY)
-      }
-    } else if (o.kind === 'ramp') {
-      const pose = rampPose(o)
-      const halfLen = Math.max(pose.length / 2, 0.1)
-      const halfW = o.width
-      const cos = Math.cos(pose.rotationZ)
-      const sin = Math.sin(pose.rotationZ)
-      const aabbHalfX = Math.abs(halfLen * cos) + Math.abs(halfW * sin)
-      const aabbHalfY = Math.abs(halfLen * sin) + Math.abs(halfW * cos)
-      if (x >= pose.center.x - aabbHalfX - 0.2 && x <= pose.center.x + aabbHalfX + 0.2) {
-        const topY = pose.center.y + aabbHalfY
-        top = top == null ? topY : Math.max(top, topY)
-      }
-    }
+    if (o.kind === 'ball') continue
+    const { center, rotationZ, halfExtents } = boxFor(o)
+    const cos = Math.abs(Math.cos(rotationZ))
+    const sin = Math.abs(Math.sin(rotationZ))
+    const aabbHalfX = halfExtents.x * cos + halfExtents.y * sin
+    if (Math.abs(x - center.x) > aabbHalfX + 0.2) continue
+    const topY = center.y + halfExtents.x * sin + halfExtents.y * cos
+    top = top == null ? topY : Math.max(top, topY)
   }
   return top
 }
 
 /** Lift a ball center so it clears the ground collider and any surface under its X. */
-export function clearBallFromColliders(
-  position: Vec3,
-  radius: number,
-  existing: SceneObject[],
-): Vec3 {
+export function clearBallFromColliders(position: Vec3, radius: number, existing: SceneObject[]): Vec3 {
   const surfaceTop = topSurfaceY(existing, position.x)
-  const surfaceClear =
-    surfaceTop == null ? -Infinity : surfaceTop + radius + SPAWN_CLEARANCE
-  const y = Math.max(position.y, surfaceClear, ballMinY(radius))
-  return { x: position.x, y, z: position.z }
+  const surfaceClear = surfaceTop == null ? -Infinity : surfaceTop + radius + SPAWN_CLEARANCE
+  return { x: position.x, y: Math.max(position.y, surfaceClear, ballMinY(radius)), z: 0 }
 }
 
-/** Ramp center, length, and Z-rotation for mesh placement. */
-export function rampPose(ramp: RampObject): {
-  center: Vec3
-  length: number
-  rotationZ: number
-} {
-  const dx = ramp.end.x - ramp.start.x
-  const dy = ramp.end.y - ramp.start.y
-  const length = Math.hypot(dx, dy)
-  return {
-    center: {
-      x: (ramp.start.x + ramp.end.x) / 2,
-      y: (ramp.start.y + ramp.end.y) / 2,
-      z: 0,
-    },
-    length,
-    rotationZ: Math.atan2(dy, dx),
+/**
+ * Topmost object under a world point, or null. Balls are checked before ramps
+ * and platforms; `tolerance` widens every shape so thin ones are easy to hit.
+ */
+export function hitTest(objects: SceneObject[], point: Vec3, tolerance: number): SceneObject | null {
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const o = objects[i]!
+    if (o.kind === 'ball' && Math.hypot(point.x - o.position.x, point.y - o.position.y) <= o.radius + tolerance) return o
   }
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const o = objects[i]!
+    if (o.kind === 'ball') continue
+    const { center, rotationZ, halfExtents } = boxFor(o)
+    const local = toLocal(point, center, rotationZ)
+    if (Math.abs(local.x) <= halfExtents.x + tolerance && Math.abs(local.y) <= halfExtents.y + tolerance) return o
+  }
+  return null
+}
+
+function toLocal(point: Vec3, center: Vec3, rotationZ: number): { x: number; y: number } {
+  const dx = point.x - center.x
+  const dy = point.y - center.y
+  const cos = Math.cos(rotationZ)
+  const sin = Math.sin(rotationZ)
+  return { x: dx * cos + dy * sin, y: -dx * sin + dy * cos }
 }
 
 export function cloneObjects(objects: SceneObject[]): SceneObject[] {

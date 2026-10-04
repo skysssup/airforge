@@ -1,12 +1,10 @@
 /**
  * Screen ↔ world coordinate transforms for the 2.5D playground.
  *
- * Conventions (documented in README):
- * - Screen: origin top-left, +x right, +y down, pixels.
- * - World: origin at scene center, +x right, +y up, +z toward camera.
- * - Drawing maps to world x/y; meshes get thickness on z; bodies are z-constrained.
- * - Webcam frames are mirrored (selfie view) so drawing matches muscle memory.
- * - This is NOT precise 3D hand tracking — depth is ignored.
+ * - Screen: origin top-left, +x right, +y down, CSS pixels.
+ * - World: origin at the scene center, +x right, +y up, +z toward the camera.
+ * - Drawing maps to world x/y at z = 0; bodies have depth on z but cannot move along it.
+ * - Webcam landmarks are mirrored (selfie view) so drawing matches the hand's motion.
  */
 
 import type { Vec2, Vec3 } from '../events/types'
@@ -21,6 +19,8 @@ export interface ViewBounds {
   worldHalfWidth: number
   /** Half-extent of the visible world along Y at the draw plane */
   worldHalfHeight: number
+  /** World y at the center of the view (the camera looks straight down -Z from here) */
+  centerY: number
 }
 
 export const DEFAULT_VIEW: ViewBounds = {
@@ -28,32 +28,22 @@ export const DEFAULT_VIEW: ViewBounds = {
   height: 720,
   worldHalfWidth: WORLD_HALF_WIDTH,
   worldHalfHeight: WORLD_HALF_HEIGHT,
+  centerY: 0,
 }
 
-/** Map screen pixel (optionally mirrored) → world x/y on the draw plane (z=0). */
-export function screenToWorld(
-  screen: Vec2,
-  view: ViewBounds = DEFAULT_VIEW,
-  mirrored = false,
-): Vec3 {
-  const nx = mirrored ? 1 - screen.x / view.width : screen.x / view.width
-  const ny = screen.y / view.height
-  const x = (nx - 0.5) * 2 * view.worldHalfWidth
-  const y = (0.5 - ny) * 2 * view.worldHalfHeight
+/** Map a screen pixel to world x/y on the draw plane (z = 0). */
+export function screenToWorld(screen: Vec2, view: ViewBounds = DEFAULT_VIEW): Vec3 {
+  const x = (screen.x / view.width - 0.5) * 2 * view.worldHalfWidth
+  const y = view.centerY + (0.5 - screen.y / view.height) * 2 * view.worldHalfHeight
   return { x, y, z: 0 }
 }
 
-/** Map world x/y → screen pixel. */
-export function worldToScreen(
-  world: Vec3 | Vec2,
-  view: ViewBounds = DEFAULT_VIEW,
-  mirrored = false,
-): Vec2 {
-  const nx = world.x / (2 * view.worldHalfWidth) + 0.5
-  const ny = 0.5 - world.y / (2 * view.worldHalfHeight)
-  const x = (mirrored ? 1 - nx : nx) * view.width
-  const y = ny * view.height
-  return { x, y }
+/** Map world x/y to a screen pixel. */
+export function worldToScreen(world: Vec3 | Vec2, view: ViewBounds = DEFAULT_VIEW): Vec2 {
+  return {
+    x: (world.x / (2 * view.worldHalfWidth) + 0.5) * view.width,
+    y: (0.5 - (world.y - view.centerY) / (2 * view.worldHalfHeight)) * view.height,
+  }
 }
 
 /** Mirror a normalized [0,1] landmark for selfie-style drawing. */

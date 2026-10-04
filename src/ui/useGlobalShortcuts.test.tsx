@@ -5,13 +5,26 @@ import userEvent from '@testing-library/user-event'
 import { Toolbar } from './Toolbar'
 import { useGlobalShortcuts } from './useGlobalShortcuts'
 import { appStore } from '../store/appStore'
+import { EXAMPLES, loadExampleScene } from '../examples'
+import { ambiguousScribble } from '../test/strokes'
+import { worldToScreen } from '../coords/transforms'
+
+/** Click the most recently added ball and return its id. */
+function selectLastBall(): string {
+  const ball = state().objects.filter((o) => o.kind === 'ball').at(-1)
+  if (ball?.kind !== 'ball') throw new Error('Expected a ball')
+  appStore.selectAt(worldToScreen(ball.position, state().view))
+  expect(state().selectedId).toBe(ball.id)
+  return ball.id
+}
 
 const onToggleHelp = vi.fn()
 const onEscape = vi.fn()
+const state = () => appStore.getState()
 
 function Harness({ dialogOpen = false }: { dialogOpen?: boolean }) {
   useGlobalShortcuts({ dialogOpen, onToggleHelp, onEscape })
-  return <Toolbar onToggleWebcam={() => {}} onOpenHelp={() => {}} onOpenReplay={() => {}} />
+  return <Toolbar onToggleWebcam={() => {}} onOpenHelp={() => {}} />
 }
 
 beforeEach(() => {
@@ -21,71 +34,100 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('global shortcuts', () => {
-  it('lets Space activate a focused button instead of pausing', async () => {
+  it('runs the simulation keys: D drops, R restarts, F freezes, Space pauses', async () => {
     const user = userEvent.setup()
+    appStore.loadScene(loadExampleScene(EXAMPLES[0]!), { message: 'opened' })
     render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Add ball' }))
-    expect(appStore.getState().objects).toHaveLength(1)
-    await user.keyboard(' ')
-    expect(appStore.getState().objects).toHaveLength(2)
-    expect(appStore.getState().physics.paused).toBe(false)
-  })
-
-  it('lets Enter activate a focused button', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Add ball' }))
-    await user.keyboard('{Enter}')
-    expect(appStore.getState().objects).toHaveLength(2)
-  })
-
-  it('still pauses on Space and drops on D from non-interactive focus', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.keyboard(' ')
-    expect(appStore.getState().physics.paused).toBe(true)
     await user.keyboard('d')
-    expect(appStore.getState().objects.some((o) => o.kind === 'ball')).toBe(true)
+    expect(state().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
+    await user.keyboard('f')
+    expect(state().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(false)
+    await user.keyboard('r')
+    expect(state().objects.some((o) => o.kind === 'ball' && o.releasedFrom)).toBe(false)
+    await user.keyboard(' ')
+    expect(state().physics.paused).toBe(true)
   })
 
-  it('still runs letter shortcuts while a button has focus', async () => {
+  it('undoes with Z, Ctrl+Z, or Cmd+Z and redoes with Shift+Z or Ctrl+Shift+Z', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    for (let i = 0; i < 3; i++) appStore.addBall()
+    await user.keyboard('z')
+    await user.keyboard('{Control>}z{/Control}')
+    await user.keyboard('{Meta>}z{/Meta}')
+    expect(state().objects).toHaveLength(0)
+    await user.keyboard('{Shift>}z{/Shift}')
+    await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}')
+    expect(state().objects).toHaveLength(2)
+  })
+
+  it('deletes the selected shape with Delete or Backspace', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    appStore.addBall()
+    appStore.addBall()
+    for (const key of ['{Delete}', '{Backspace}']) {
+      const target = selectLastBall()
+      await user.keyboard(key)
+      expect(state().objects.some((o) => o.id === target)).toBe(false)
+    }
+    expect(state().objects).toHaveLength(0)
+  })
+
+  it('uses Escape to discard an unclear stroke, then to clear the selection', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    appStore.addBall()
+    appStore.endStroke(ambiguousScribble())
+    expect(state().pending).not.toBeNull()
+    await user.keyboard('{Escape}')
+    expect(state().pending).toBeNull()
+    selectLastBall()
+    await user.keyboard('{Escape}')
+    expect(state().selectedId).toBeNull()
+  })
+
+  it('lets Space and Enter activate a focused button instead of pausing', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Add ball' }))
-    await user.keyboard('z')
-    expect(appStore.getState().objects).toHaveLength(0)
+    await user.keyboard(' ')
+    await user.keyboard('{Enter}')
+    expect(state().objects).toHaveLength(3)
+    expect(state().physics.paused).toBe(false)
   })
 
-  it('leaves browser modifier shortcuts alone', async () => {
+  it('leaves other browser shortcuts alone', async () => {
     const user = userEvent.setup()
-    appStore.loadRampAndBall()
+    appStore.loadScene(loadExampleScene(EXAMPLES[0]!), { message: 'opened' })
     render(<Harness />)
-    const before = appStore.getState().objects
+    const before = state().objects
     const keydown = vi.fn((e: KeyboardEvent) => e.defaultPrevented)
     window.addEventListener('keydown', keydown)
-    await user.keyboard('{Control>}r{/Control}{Meta>}z{/Meta}{Alt>}d{/Alt}')
+    await user.keyboard('{Control>}r{/Control}{Meta>}d{/Meta}{Alt>}z{/Alt}{Control>}f{/Control}')
     window.removeEventListener('keydown', keydown)
-    expect(appStore.getState().objects).toBe(before)
+    expect(state().objects).toBe(before)
     expect(keydown.mock.results.every((r) => r.value === false)).toBe(true)
   })
 
   it('ignores shortcuts while typing in the scene name', async () => {
     const user = userEvent.setup()
-    appStore.loadRampAndBall()
+    appStore.loadScene(loadExampleScene(EXAMPLES[0]!), { message: 'opened' })
     render(<Harness />)
-    const before = appStore.getState().objects
+    const before = state().objects
     await user.click(screen.getByRole('textbox', { name: 'Scene name' }))
-    await user.keyboard('r d z f ?')
-    expect(appStore.getState().objects).toBe(before)
+    await user.keyboard('r d z f ?{Backspace}{Control>}z{/Control}')
+    expect(state().objects).toBe(before)
     expect(onToggleHelp).not.toHaveBeenCalled()
   })
 
   it('blocks scene shortcuts while a dialog is open but keeps help and Escape', async () => {
     const user = userEvent.setup()
     render(<Harness dialogOpen />)
-    await user.keyboard(' d')
-    expect(appStore.getState().physics.paused).toBe(false)
-    expect(appStore.getState().objects).toHaveLength(0)
+    appStore.addBall()
+    await user.keyboard(' dz{Control>}z{/Control}')
+    expect(state().physics.paused).toBe(false)
+    expect(state().objects).toHaveLength(1)
     await user.keyboard('?{Escape}')
     expect(onToggleHelp).toHaveBeenCalledTimes(1)
     expect(onEscape).toHaveBeenCalledTimes(1)
@@ -93,7 +135,7 @@ describe('global shortcuts', () => {
 })
 
 describe('scene name input', () => {
-  it('keeps spaces while typing and normalizes on commit', async () => {
+  it('keeps spaces while typing and normalizes on Enter', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Scene name' })
@@ -101,7 +143,7 @@ describe('scene name input', () => {
     await user.type(input, 'Ramp and Ball ')
     expect(input.value).toBe('Ramp and Ball ')
     await user.keyboard('{Enter}')
-    expect(appStore.getState().sceneName).toBe('Ramp and Ball')
+    expect(state().sceneName).toBe('Ramp and Ball')
     expect(input.value).toBe('Ramp and Ball')
   })
 
@@ -112,16 +154,16 @@ describe('scene name input', () => {
     await user.clear(input)
     await user.type(input, 'Cascade')
     await user.tab()
-    expect(appStore.getState().sceneName).toBe('Cascade')
+    expect(state().sceneName).toBe('Cascade')
 
     await user.click(input)
     await user.type(input, ' draft{Escape}')
     expect(input.value).toBe('Cascade')
     await user.tab()
-    expect(appStore.getState().sceneName).toBe('Cascade')
+    expect(state().sceneName).toBe('Cascade')
 
     await user.clear(input)
     await user.tab()
-    expect(appStore.getState().sceneName).toBe('Untitled')
+    expect(state().sceneName).toBe('Untitled')
   })
 })

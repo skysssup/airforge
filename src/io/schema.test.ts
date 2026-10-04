@@ -5,12 +5,14 @@ import {
   MAX_JSON_BYTES,
   SCENE_FORMAT_VERSION,
 } from './schema'
-import { rampAndBall } from '../fixtures/scenes'
+import { EXAMPLES, loadExampleScene } from '../examples'
 import {
   DEFAULT_PHYSICS,
   FRICTION_MAX,
   MAX_WORLD_COORDINATE,
 } from '../physics/params'
+
+const rampAndBall = loadExampleScene(EXAMPLES[0]!)
 
 function scene(extra: Record<string, unknown> = {}) {
   return {
@@ -207,10 +209,12 @@ describe('export/import', () => {
     if (!result.ok) expect(result.error).toContain(`±${MAX_WORLD_COORDINATE} world units`)
   })
 
+  const ramp = rampAndBall.objects.find((o) => o.kind === 'ramp')!
+  const platform = rampAndBall.objects.find((o) => o.kind === 'platform')!
   it.each([
-    { ...rampAndBall.objects[0], start: { x: -MAX_WORLD_COORDINATE - 1, y: 0, z: 0 } },
-    { ...rampAndBall.objects[0], end: { x: MAX_WORLD_COORDINATE + 1, y: 0, z: 0 } },
-    { ...rampAndBall.objects[2], center: { x: 0, y: MAX_WORLD_COORDINATE + 1, z: 0 } },
+    { ...ramp, start: { x: -MAX_WORLD_COORDINATE - 1, y: 0, z: 0 } },
+    { ...ramp, end: { x: MAX_WORLD_COORDINATE + 1, y: 0, z: 0 } },
+    { ...platform, center: { x: 0, y: MAX_WORLD_COORDINATE + 1, z: 0 } },
   ])('rejects excessive coordinates in a $kind', object => {
     const result = validateSceneJson(JSON.stringify(scene({ objects: [object] })))
     expect(result.ok).toBe(false)
@@ -226,16 +230,23 @@ describe('export/import', () => {
   })
 })
 
-import { sceneStats } from './serialize'
-import { stairsDrop } from '../fixtures/scenes'
+it('drops unknown keys inside coordinates', () => {
+  const r = validateSceneJson(JSON.stringify(scene({ objects: [{
+    id: 'b', kind: 'ball', createdAt: 0, radius: 0.35, position: { x: 1, y: 2, z: 0, note: 'extra' },
+  }] })))
+  expect(r.ok && r.scene.objects[0]!.position).toEqual({ x: 1, y: 2, z: 0 })
+})
 
-describe('sceneStats', () => {
-  it('counts kinds for stairs example', () => {
-    const s = sceneStats(stairsDrop.objects)
-    expect(s.platforms).toBe(4)
-    expect(s.balls).toBe(1)
-    expect(s.ramps).toBe(0)
-    expect(s.total).toBe(5)
-    expect(s.dynamicBalls).toBe(0)
-  })
+it('fills in documented defaults for optional fields', () => {
+  const result = importSceneJson(JSON.stringify(scene({ objects: [
+    { id: 'r', kind: 'ramp', createdAt: 0, start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 1, z: 0 } },
+    { id: 'b', kind: 'ball', createdAt: 0, position: { x: 0, y: 2, z: 0 } },
+    { id: 'p', kind: 'platform', createdAt: 0, center: { x: 0, y: -1, z: 0 }, halfExtents: { x: 1, y: 0.1, z: 0.2 } },
+  ] })))
+  if (!result.ok) throw new Error(result.error)
+  expect(result.objects).toEqual([
+    expect.objectContaining({ width: 0.28, thickness: 0.35 }),
+    expect.objectContaining({ radius: 0.35, dynamic: false }),
+    expect.objectContaining({ rotationZ: 0 }),
+  ])
 })

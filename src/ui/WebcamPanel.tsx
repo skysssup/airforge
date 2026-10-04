@@ -1,214 +1,147 @@
 import { useEffect, useRef, useState } from 'react'
 import { openCamera, stopCamera, CameraError, cameraErrorHint } from '../camera/media'
 import type { HandTracker } from '../hand/landmarker'
-import {
-  classifyRawGesture,
-  createGestureMachine,
-  stepGestureMachine,
-  resetGestureMachine,
-  type Landmark,
-} from '../hand/gestures'
+import { classifyRawGesture, createGestureMachine, stepGestureMachine, type StableGesture } from '../hand/gestures'
 import { landmarkToScreen } from '../coords/transforms'
 import { appStore } from '../store/appStore'
-import {
-  addRawPoint,
-  cancelStroke,
-  createStroke,
-  endStroke,
-  type StrokeState,
-} from '../stroke/capture'
-import { makeEventId } from '../events/types'
+import { addRawPoint, cancelStroke, createStroke, endStroke, type StrokeState } from '../stroke/capture'
 
 interface Props {
   active: boolean
   onClose: () => void
 }
 
+const GESTURE_LABELS: Record<NonNullable<StableGesture>, string> = {
+  draw: 'Webcam · drawing (index finger)',
+  pen_up: 'Webcam · pen up (pinch)',
+  erase: 'Webcam · cancel (open palm)',
+}
+
+const HAND_LOST = 'Hand lost, so the stroke was cancelled.'
+
 export function WebcamPanel({ active, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
-  const strokeRef = useRef<StrokeState | null>(null)
-  const machineRef = useRef(createGestureMachine())
-  const trackerRef = useRef<HandTracker | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const rafRef = useRef<number>(0)
-  const drawingRef = useRef(false)
 
   useEffect(() => {
     if (!active) return
     let cancelled = false
-    let ownedStream: MediaStream | null = null
-    let ownedTracker: HandTracker | null = null
+    let frame = 0
+    let stream: MediaStream | null = null
+    let tracker: HandTracker | null = null
+    let stroke: StrokeState | null = null
+    const machine = createGestureMachine()
 
-    function releaseResources() {
-      ownedTracker?.close()
-      if (trackerRef.current === ownedTracker) trackerRef.current = null
-      ownedTracker = null
-      stopCamera(ownedStream)
-      if (streamRef.current === ownedStream) streamRef.current = null
+    function release() {
+      cancelAnimationFrame(frame)
+      tracker?.close()
+      tracker = null
+      stopCamera(stream)
       const video = videoRef.current
-      if (video && video.srcObject === ownedStream) video.srcObject = null
-      ownedStream = null
+      if (video && video.srcObject === stream) video.srcObject = null
+      stream = null
+    }
+
+    function stopStroke(finish: boolean, message?: string) {
+      if (!stroke) return
+      if (finish) {
+        appStore.endStroke(endStroke(stroke))
+      } else {
+        cancelStroke(stroke)
+        appStore.cancelStroke(message)
+      }
+      stroke = null
+    }
+
+    function fail(err: unknown) {
+      release()
+      if (cancelled) return
+      const message = err instanceof CameraError ? `${err.message} ${cameraErrorHint(err.code)}` : `Webcam stopped: ${String(err)}`
+      appStore.setWebcamEnabled(false)
+      appStore.setStatus(message)
+    }
+
+    function step() {
+      const video = videoRef.current
+      if (!video || !tracker) return
+      const landmarks = video.readyState >= 2 ? tracker.detect(video, performance.now()) : null
+
+      if (!landmarks) {
+        const { cancelStroke: lost, handLost } = stepGestureMachine(machine, null, false)
+        if (handLost) appStore.setGestureLabel('Webcam · no hand in view')
+        if (lost) stopStroke(false, HAND_LOST)
+        return
+      }
+
+      const { stable } = stepGestureMachine(machine, classifyRawGesture(landmarks), true)
+      appStore.setGestureLabel(stable ? GESTURE_LABELS[stable] : 'Webcam · hold a gesture steady…')
+      const tip = landmarks[8]
+      if (!tip) return
+      const point = landmarkToScreen(tip, appStore.getState().view, true)
+
+      if (stable !== 'draw') {
+        stopStroke(stable === 'pen_up', 'Stroke cancelled (open palm).')
+        return
+      }
+      if (!stroke) {
+        stroke = createStroke('webcam')
+        addRawPoint(stroke, point)
+        appStore.beginStroke(point)
+        return
+      }
+      const added = addRawPoint(stroke, point)
+      if (stroke.gapExceeded) stopStroke(false, 'Tracking jumped, so the stroke was cancelled.')
+      else if (added) appStore.setLiveStroke(stroke.points.slice())
+    }
+
+    function loop() {
+      try {
+        step()
+        if (!cancelled) frame = requestAnimationFrame(loop)
+      } catch (err) {
+        fail(err)
+      }
     }
 
     async function start() {
-      setError(null)
       setReady(false)
       try {
-        const stream = await openCamera({ width: 1280, height: 720 })
+        const opened = await openCamera({ width: 1280, height: 720 })
         if (cancelled) {
-          stopCamera(stream)
+          stopCamera(opened)
           return
         }
-        ownedStream = stream
-        streamRef.current = stream
+        stream = opened
         const video = videoRef.current
         if (!video) throw new Error('Camera preview is unavailable')
-        video.srcObject = stream
+        video.srcObject = opened
         await video.play()
-        if (cancelled) { releaseResources(); return }
+        if (cancelled) return release()
 
-        // Dynamic import keeps MediaPipe out of the initial bundle
-        const { HandTracker: HT } = await import('../hand/landmarker')
-        if (cancelled) { releaseResources(); return }
-        const tracker = new HT()
-        ownedTracker = tracker
-        await tracker.init()
-        if (cancelled) {
-          tracker.close()
-          releaseResources()
-          return
-        }
-        trackerRef.current = tracker
+        // Loaded on demand so MediaPipe stays out of the main bundle.
+        const { HandTracker } = await import('../hand/landmarker')
+        if (cancelled) return release()
+        const created = new HandTracker()
+        tracker = created
+        await created.init()
+        // Closing during init is a no-op, so close again once the model has loaded.
+        if (cancelled) return created.close()
         setReady(true)
-        appStore.setGestureLabel('Webcam · searching for hand')
+        appStore.setGestureLabel('Webcam · looking for a hand')
+        appStore.setStatus(`Webcam ready (hand tracking on ${created.delegate}). Raise your index finger to draw; pinch to finish a shape.`)
         loop()
       } catch (err) {
         fail(err)
       }
     }
 
-    function fail(err: unknown) {
-      releaseResources()
-      if (cancelled) return
-      const ce = err instanceof CameraError ? err : null
-      const msg = ce ? `${ce.message} ${cameraErrorHint(ce.code)}` : String(err)
-      setError(msg)
-      appStore.setWebcamEnabled(false)
-      appStore.setStatus(msg)
-    }
-
-    function finishActiveStroke(asCancel: boolean, reason: 'hand_lost' | 'mode_change' | 'user') {
-      if (!strokeRef.current) {
-        drawingRef.current = false
-        return
-      }
-      if (asCancel) {
-        cancelStroke(strokeRef.current)
-        strokeRef.current = null
-        drawingRef.current = false
-        appStore.cancelStroke('webcam', reason)
-        return
-      }
-      const pts = endStroke(strokeRef.current)
-      strokeRef.current = null
-      drawingRef.current = false
-      appStore.endStroke('webcam', pts)
-    }
-
-    function loop() {
-      try {
-        step()
-        if (!cancelled) rafRef.current = requestAnimationFrame(loop)
-      } catch (err) {
-        fail(err)
-      }
-    }
-
-    function step() {
-      const video = videoRef.current
-      const tracker = trackerRef.current
-      if (!video || !tracker || cancelled) return
-
-      const now = performance.now()
-      const hand = video.readyState >= 2 ? tracker.detect(video, now) : null
-      const machine = machineRef.current
-
-      if (!hand) {
-        const { cancelStroke: shouldCancel, handLost } = stepGestureMachine(
-          machine,
-          null,
-          false,
-        )
-        if (handLost) appStore.setGestureLabel('Webcam · hand lost')
-        if (shouldCancel) finishActiveStroke(true, 'hand_lost')
-      } else {
-        const raw = classifyRawGesture(hand.landmarks as Landmark[])
-        const { stable, cancelStroke: shouldCancel } = stepGestureMachine(
-          machine,
-          raw,
-          true,
-        )
-
-        const label =
-          stable === 'draw'
-            ? 'Webcam · DRAW (index)'
-            : stable === 'erase'
-              ? 'Webcam · CANCEL (palm)'
-              : stable === 'pen_up'
-                ? 'Webcam · PEN UP (pinch)'
-                : 'Webcam · settling…'
-        appStore.setGestureLabel(label)
-
-        if (shouldCancel) finishActiveStroke(true, 'hand_lost')
-
-        const tip = hand.landmarks[8]
-        if (tip && !shouldCancel) {
-          const screen = landmarkToScreen({ x: tip.x, y: tip.y }, appStore.getState().view, true)
-
-          if (stable === 'draw') {
-            if (!drawingRef.current) {
-              strokeRef.current = createStroke(makeEventId('stroke'), 'webcam')
-              addRawPoint(strokeRef.current, screen)
-              drawingRef.current = true
-              appStore.beginStroke('webcam', screen)
-            } else if (strokeRef.current) {
-              const smoothed = addRawPoint(strokeRef.current, screen)
-              if (strokeRef.current.gapExceeded) {
-                // Tracking jump — cancel rather than connect distant points
-                finishActiveStroke(true, 'hand_lost')
-              } else if (smoothed) {
-                appStore.setLiveStroke(strokeRef.current.points.slice(), 'webcam')
-              }
-            }
-          } else if (drawingRef.current) {
-            if (stable === 'erase') {
-              finishActiveStroke(true, 'mode_change')
-            } else {
-              finishActiveStroke(false, 'user')
-            }
-          }
-        }
-      }
-    }
-
     void start()
 
-    const machine = machineRef.current
     return () => {
       cancelled = true
-      cancelAnimationFrame(rafRef.current)
-      releaseResources()
-      if (strokeRef.current) {
-        cancelStroke(strokeRef.current)
-        strokeRef.current = null
-        drawingRef.current = false
-        appStore.cancelStroke('webcam', 'user')
-      }
-      resetGestureMachine(machine)
+      stopStroke(false)
+      release()
     }
-    // view is read live via appStore.getState() in the loop — do not restart on resize
   }, [active])
 
   if (!active) return null
@@ -222,13 +155,10 @@ export function WebcamPanel({ active, onClose }: Props) {
         </button>
       </div>
       <div className="webcam-frame">
-        <video ref={videoRef} playsInline muted className="webcam-video mirrored" />
-        {!ready && !error && <div className="webcam-status">Loading HandLandmarker…</div>}
-        {error && <div className="webcam-status error">{error}</div>}
+        <video ref={videoRef} playsInline muted className="webcam-video" />
+        {!ready && <div className="webcam-status">Loading the hand tracker…</div>}
       </div>
-      <p className="muted small">
-        Mirrored view. Index = draw, pinch = pen up, open palm = cancel stroke. Mouse overlay remains active.
-      </p>
+      <p className="muted small">Mirrored view. Index finger draws, pinch finishes, open palm cancels. The mouse still works.</p>
     </aside>
   )
 }

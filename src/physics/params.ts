@@ -32,8 +32,10 @@ export const DEFAULT_PHYSICS: PhysicsParams = {
 /** Mesh thickness along Z for 2.5D bodies. */
 export const MESH_THICKNESS = 0.35
 
-/** Ball radius in world units. */
+/** Radius of balls added with Add ball or Drop; drawn circles keep their size within the min/max. */
 export const BALL_RADIUS = 0.35
+export const MIN_BALL_RADIUS = 0.15
+export const MAX_BALL_RADIUS = 1.5
 
 /** World region always visible; other aspect ratios expose more of the draw plane. */
 export const WORLD_HALF_WIDTH = 8
@@ -54,12 +56,15 @@ export const SPAWN_CLEARANCE = 0.15
 export const MAX_OBJECTS = 40
 
 /**
- * Ground rigid body center Y and CuboidCollider half-height (see PhysicsWorld).
- * Ball centers must sit at or above GROUND_TOP_Y + radius to avoid embedding.
+ * Floor and side walls (see physics/world.ts). Ball centers must sit at or
+ * above GROUND_TOP_Y + radius to avoid embedding in the floor.
  */
 export const GROUND_Y = -4.2
 export const GROUND_HALF_HEIGHT = 0.2
 export const GROUND_TOP_Y = GROUND_Y + GROUND_HALF_HEIGHT
+export const WALL_X = 9
+export const WALL_HALF_WIDTH = 0.2
+export const WALL_HALF_HEIGHT = 8
 
 /** Minimum ball-center Y that clears the ground collider for a given radius. */
 export function ballMinY(radius: number): number {

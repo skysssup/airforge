@@ -10,40 +10,61 @@ interface Handlers {
   onEscape: () => void
 }
 
+const LETTER_ACTIONS: Record<string, () => void> = {
+  d: () => appStore.drop(),
+  r: () => appStore.restart(),
+  f: () => appStore.freezeBalls(),
+}
+
 export function useGlobalShortcuts({ dialogOpen, onToggleHelp, onEscape }: Handlers): void {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.defaultPrevented || e.isComposing || e.altKey) return
       const target = e.target instanceof Element ? e.target : null
       if (target?.closest(EDITABLE)) return
+      const key = e.key.toLowerCase()
+      const command = e.ctrlKey || e.metaKey
 
-      if (e.key === 'Escape') {
-        onEscape()
+      if (key === 'escape' && !command) {
+        if (dialogOpen) {
+          onEscape()
+        } else if (appStore.getState().pending) {
+          appStore.resolvePending('discard')
+        } else {
+          appStore.clearSelection()
+        }
         return
       }
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      if (e.key === '?' && !command) {
         e.preventDefault()
         onToggleHelp()
         return
       }
       if (dialogOpen) return
 
-      if (e.key === ' ') {
+      if (key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) appStore.redo()
+        else appStore.undo()
+        return
+      }
+      if (command) return
+
+      if (key === ' ') {
         if (target?.closest(ACTIVATABLE)) return
         e.preventDefault()
         appStore.togglePause()
         return
       }
-      const key = e.key.toLowerCase()
-      const action =
-        key === 'z' ? appStore.undo
-        : key === 'r' ? appStore.resetScene
-        : key === 'd' ? appStore.dropBall
-        : key === 'f' ? appStore.freezeBalls
-        : null
+      if (key === 'delete' || key === 'backspace') {
+        e.preventDefault()
+        appStore.deleteSelected()
+        return
+      }
+      const action = e.shiftKey ? undefined : LETTER_ACTIONS[key]
       if (!action) return
       e.preventDefault()
-      action.call(appStore)
+      action()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

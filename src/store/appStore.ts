@@ -1,61 +1,69 @@
 import type { Vec2 } from '../events/types'
-import type { SceneObject, BallObject } from '../scene/objects'
-import {
-  cloneObjects,
-  createBallAt,
-  objectFromRecognition,
-} from '../scene/objects'
+import { cloneObjects, createBallAt, hitTest, objectFromRecognition, type SceneObject } from '../scene/objects'
 import type { PhysicsParams } from '../physics/params'
-import { DEFAULT_PHYSICS, MAX_OBJECTS, GRAVITY_MIN, GRAVITY_MAX, BOUNCE_MIN, BOUNCE_MAX, FRICTION_MIN, FRICTION_MAX } from '../physics/params'
-import { recognizeStroke, shapeToObjectKind, type ShapeCandidate } from '../shapes/recognize'
-import type { ViewBounds } from '../coords/transforms'
-import { DEFAULT_VIEW } from '../coords/transforms'
 import {
-  createTimeline,
-  recordEvent,
-  recordSnapshot,
-  type ReplayTimeline,
-} from '../replay/timeline'
-import { makeEventId, nowMs, type InteractionEvent } from '../events/types'
-import { rampAndBall } from '../fixtures/scenes'
-import { snapshotLiveBallPoses, clearAllLiveBallPoses } from '../physics/livePoses'
+  BOUNCE_MAX,
+  BOUNCE_MIN,
+  DEFAULT_PHYSICS,
+  FRICTION_MAX,
+  FRICTION_MIN,
+  GRAVITY_MAX,
+  GRAVITY_MIN,
+  MAX_OBJECTS,
+} from '../physics/params'
+import { recognizeStroke, shapeToObjectKind, type ShapeCandidate } from '../shapes/recognize'
+import { DEFAULT_VIEW, screenToWorld, type ViewBounds } from '../coords/transforms'
+import { clearAllLiveBallPoses, snapshotLiveBallPoses } from '../physics/livePoses'
 
-export interface AmbiguousSuggestion {
-  strokeId: string
+export type ShapeChoice = 'ramp' | 'ball' | 'platform'
+
+/** A finished stroke the recognizer could not classify with confidence. */
+export interface PendingStroke {
   points: Vec2[]
   primary: ShapeCandidate | null
   alternatives: ShapeCandidate[]
 }
 
-/** Undo unit: objects + scene name + physics as one snapshot. */
+/** Undo unit: everything an edit can change. */
 export interface SceneSnapshot {
   objects: SceneObject[]
   physics: PhysicsParams
   sceneName: string
 }
 
+export interface LoadedScene {
+  name: string
+  objects: SceneObject[]
+  physics: PhysicsParams
+}
+
 export interface AppState {
   objects: SceneObject[]
   physics: PhysicsParams
+  sceneName: string
+  /** Example whose notes card is showing. */
+  exampleId: string | null
+  selectedId: string | null
   view: ViewBounds
   liveStroke: Vec2[]
-  strokeSource: 'mouse' | 'webcam' | null
-  history: SceneSnapshot[]
-  suggestion: AmbiguousSuggestion | null
+  pending: PendingStroke | null
+  undoStack: SceneSnapshot[]
+  redoStack: SceneSnapshot[]
+  /** Bumped when the whole scene is replaced so the physics world is rebuilt. */
+  sceneRevision: number
   tutorialDismissed: boolean
   webcamEnabled: boolean
   gestureLabel: string
-  objectLimitHit: boolean
-  timeline: ReplayTimeline
-  replayMode: boolean
-  restoreRevision: number
   statusMessage: string
-  sceneName: string
 }
 
-type Listener = () => void
-
 const TUTORIAL_KEY = 'airforge.tutorialDismissed'
+const MAX_HISTORY = 50
+/** Strokes whose extent stays within this many pixels are clicks, not drawings. */
+const TAP_SLOP = 6
+/** Extra world-space margin when clicking thin shapes. */
+const HIT_TOLERANCE = 0.15
+const SPAWN_POINT = { x: -3, y: 3.5, z: 0 }
 
 function loadTutorialDismissed(): boolean {
   try {
@@ -69,71 +77,118 @@ function createInitialState(): AppState {
   return {
     objects: [],
     physics: { ...DEFAULT_PHYSICS },
+    sceneName: 'Untitled',
+    exampleId: null,
+    selectedId: null,
     view: { ...DEFAULT_VIEW },
     liveStroke: [],
-    strokeSource: null,
-    history: [],
-    suggestion: null,
+    pending: null,
+    undoStack: [],
+    redoStack: [],
+    sceneRevision: 0,
     tutorialDismissed: loadTutorialDismissed(),
     webcamEnabled: false,
     gestureLabel: 'Mouse',
-    objectLimitHit: false,
-    timeline: createTimeline(),
-    replayMode: false,
-    restoreRevision: 0,
-    statusMessage: 'Draw a diagonal to forge a ramp — or load Ramp & Ball.',
-    sceneName: 'Untitled',
+    statusMessage: 'Drag on the canvas to draw a ramp, ball, or platform, or open an example.',
   }
 }
 
 let state: AppState = createInitialState()
-let liveScene: { objects: SceneObject[]; physics: PhysicsParams } | null = null
-const listeners = new Set<Listener>()
-
-function emit(): void {
-  for (const l of listeners) l()
-}
+const listeners = new Set<() => void>()
 
 function setState(partial: Partial<AppState>): void {
   state = { ...state, ...partial }
-  emit()
+  for (const listener of listeners) listener()
 }
 
-function pushHistory(): void {
-  const entry: SceneSnapshot = {
-    objects: cloneObjects(mergeLiveBallPoses(state.objects)),
-    physics: { ...state.physics },
-    sceneName: state.sceneName,
-  }
-  const history = [...state.history, entry].slice(-50)
-  setState({ history })
-}
-
-/** Copy live Rapier ball translations into store object positions. */
-function mergeLiveBallPoses(objects: SceneObject[]): SceneObject[] {
-  if (state.replayMode) return objects
+/** Store objects with every moving ball at the position Rapier currently reports. */
+function objectsWithLivePoses(): SceneObject[] {
   const poses = snapshotLiveBallPoses()
-  if (Object.keys(poses).length === 0) return objects
-  return objects.map((o) => {
-    if (o.kind !== 'ball') return o
-    const pos = poses[o.id]
-    if (!pos) return o
-    return { ...o, position: { x: pos.x, y: pos.y, z: pos.z } }
+  return state.objects.map((o) => {
+    const pose = o.kind === 'ball' && o.dynamic ? poses[o.id] : undefined
+    return pose ? { ...o, position: pose } : o
   })
 }
 
-function logEvent(event: InteractionEvent): void {
-  recordEvent(state.timeline, event)
+function snapshot(): SceneSnapshot {
+  return { objects: cloneObjects(objectsWithLivePoses()), physics: { ...state.physics }, sceneName: state.sceneName }
 }
 
-function snap(label?: string): void {
-  recordSnapshot(state.timeline, nowMs(), mergeLiveBallPoses(state.objects), state.physics, label)
+/** Apply an edit and record the previous scene for Undo. */
+function commit(partial: Partial<AppState>): void {
+  setState({
+    ...partial,
+    undoStack: [...state.undoStack, snapshot()].slice(-MAX_HISTORY),
+    redoStack: [],
+  })
 }
 
-function replayLocked(): boolean {
-  if (!state.replayMode) return false
-  setState({ statusMessage: 'Close replay to edit the scene.' })
-  return true
+/** Replace the whole scene; the physics world restarts from the given positions. */
+function replaceScene(scene: SceneSnapshot, extra: Partial<AppState>): void {
+  clearAllLiveBallPoses()
+  setState({
+    objects: scene.objects,
+    physics: { ...scene.physics },
+    sceneName: scene.sceneName,
+    selectedId: null,
+    pending: null,
+    liveStroke: [],
+    sceneRevision: state.sceneRevision + 1,
+    ...extra,
+  })
+}
+
+/** "1 ball", "2 balls". */
+export function count(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function addObject(object: SceneObject | null, message: string): void {
+  if (state.objects.length >= MAX_OBJECTS) {
+    setState({ pending: null, statusMessage: `Scenes are limited to ${MAX_OBJECTS} objects. Delete or undo something first.` })
+    return
+  }
+  if (!object) {
+    setState({ pending: null, statusMessage: 'That shape lies outside the supported area, so nothing was added.' })
+    return
+  }
+  commit({ objects: [...state.objects, object], pending: null, selectedId: null, statusMessage: message })
+}
+
+function addFromCandidate(candidate: ShapeCandidate): void {
+  const kind = shapeToObjectKind(candidate.kind)
+  addObject(objectFromRecognition(candidate, state.view, state.objects), `Added a ${kind}.`)
+}
+
+/** Build a candidate of the chosen kind from the stroke's bounding box. */
+function candidateFromBounds(kind: ShapeChoice, points: Vec2[]): ShapeCandidate {
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  if (kind === 'ramp') {
+    const start = points[0]!
+    const end = points.at(-1)!
+    return { kind: 'line', params: { x1: start.x, y1: start.y, x2: end.x, y2: end.y }, quality: 0, metrics: {} }
+  }
+  if (kind === 'ball') {
+    const radius = Math.max(maxX - minX, maxY - minY) / 2
+    return { kind: 'circle', params: { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, radius }, quality: 0, metrics: {} }
+  }
+  const corners = [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }]
+  return { kind: 'rectangle', params: { corners }, quality: 0, metrics: {} }
+}
+
+function isTap(points: Vec2[]): boolean {
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  return Math.max(...xs) - Math.min(...xs) <= TAP_SLOP && Math.max(...ys) - Math.min(...ys) <= TAP_SLOP
 }
 
 export const appStore = {
@@ -141,534 +196,256 @@ export const appStore = {
     return state
   },
 
-  subscribe(listener: Listener): () => void {
+  subscribe(listener: () => void): () => void {
     listeners.add(listener)
     return () => listeners.delete(listener)
   },
 
-  setView(view: Partial<ViewBounds>): void {
-    setState({ view: { ...state.view, ...view } })
+  setView(view: ViewBounds): void {
+    setState({ view })
   },
 
-  setLiveStroke(points: Vec2[], source: 'mouse' | 'webcam' | null): void {
-    setState({ liveStroke: points, strokeSource: source })
+  beginStroke(point: Vec2): void {
+    setState({ liveStroke: [point], pending: null })
   },
 
-  beginStroke(source: 'mouse' | 'webcam', point: Vec2): void {
-    logEvent({
-      type: 'STROKE_STARTED',
-      id: makeEventId(),
-      t: nowMs(),
-      source,
-      point,
-    })
-    setState({ liveStroke: [point], strokeSource: source, suggestion: null })
+  setLiveStroke(points: Vec2[]): void {
+    setState({ liveStroke: points })
   },
 
-  addStrokePoint(source: 'mouse' | 'webcam', point: Vec2): void {
-    logEvent({
-      type: 'POINT_ADDED',
-      id: makeEventId(),
-      t: nowMs(),
-      source,
-      point,
-    })
-    setState({ liveStroke: [...state.liveStroke, point] })
+  cancelStroke(message = 'Stroke cancelled.'): void {
+    if (state.liveStroke.length === 0) return
+    setState({ liveStroke: [], statusMessage: message })
   },
 
-  endStroke(source: 'mouse' | 'webcam', points: Vec2[]): void {
-    logEvent({
-      type: 'STROKE_ENDED',
-      id: makeEventId(),
-      t: nowMs(),
-      source,
-      points,
-    })
-    setState({ liveStroke: [], strokeSource: null })
-    this.forgeFromStroke(points)
-  },
-
-  cancelStroke(source: 'mouse' | 'webcam', reason: 'hand_lost' | 'user' | 'mode_change'): void {
-    logEvent({
-      type: 'STROKE_CANCELLED',
-      id: makeEventId(),
-      t: nowMs(),
-      source,
-      reason,
-    })
-    setState({
-      liveStroke: [],
-      strokeSource: null,
-      statusMessage:
-        reason === 'hand_lost'
-          ? 'Hand lost — stroke cancelled (points not connected across gap).'
-          : 'Stroke cancelled.',
-    })
-  },
-
-  forgeFromStroke(points: Vec2[]): void {
-    if (replayLocked()) return
+  /** Finish a stroke: a click selects, anything else becomes a shape. */
+  endStroke(points: Vec2[]): void {
+    setState({ liveStroke: [] })
+    if (points.length === 0) return
+    if (isTap(points)) {
+      appStore.selectAt(points[0]!)
+      return
+    }
     const result = recognizeStroke(points)
-    if (!result.primary) {
-      setState({
-        suggestion: {
-          strokeId: makeEventId('stroke'),
-          points,
-          primary: null,
-          alternatives: result.alternatives,
-        },
-        statusMessage: 'Shape unclear — pick ramp, ball, or platform, or keep drawing.',
-      })
+    if (result.primary && !result.ambiguous) {
+      addFromCandidate(result.primary)
       return
     }
-
-    if (result.ambiguous) {
-      setState({
-        suggestion: {
-          strokeId: makeEventId('stroke'),
-          points,
-          primary: result.primary,
-          alternatives: result.alternatives,
-        },
-        statusMessage: `Ambiguous shape (quality ${result.primary.quality.toFixed(2)}) — confirm or choose another.`,
-      })
-      return
-    }
-
-    this.createFromCandidate(result.primary, points)
-  },
-
-  createFromCandidate(candidate: ShapeCandidate, points?: Vec2[]): void {
-    if (replayLocked()) return
-    if (state.objects.length >= MAX_OBJECTS) {
-      setState({
-        objectLimitHit: true,
-        statusMessage: `Object limit (${MAX_OBJECTS}) reached.`,
-        suggestion: null,
-      })
-      return
-    }
-    const obj = objectFromRecognition(candidate, state.view, false, state.objects)
-    if (!obj) {
-      setState({ statusMessage: 'Could not create object.', suggestion: null })
-      return
-    }
-    pushHistory()
-    const objects = [...state.objects, obj]
-    const kind = shapeToObjectKind(candidate.kind)
-    logEvent({
-      type: 'OBJECT_CREATED',
-      id: makeEventId(),
-      t: nowMs(),
-      objectId: obj.id,
-      kind,
-      strokePoints: points,
-    })
     setState({
-      objects,
-      suggestion: null,
-      objectLimitHit: false,
-      statusMessage: `Forged ${kind} (quality ${candidate.quality.toFixed(2)}).`,
+      pending: { points, primary: result.primary, alternatives: result.alternatives },
+      selectedId: null,
+      statusMessage: result.primary
+        ? 'That stroke could be more than one shape. Choose what to add.'
+        : 'That stroke did not match a line, circle, or rectangle. Choose what to add, or discard it.',
     })
-    snap(`create:${kind}`)
   },
 
-  resolveSuggestion(choice: 'ramp' | 'ball' | 'platform' | 'discard'): void {
-    const sug = state.suggestion
-    if (!sug) return
-    logEvent({
-      type: 'SUGGESTION_RESOLVED',
-      id: makeEventId(),
-      t: nowMs(),
-      choice,
-      strokeId: sug.strokeId,
-    })
+  resolvePending(choice: ShapeChoice | 'discard'): void {
+    const pending = state.pending
+    if (!pending) return
     if (choice === 'discard') {
-      setState({ suggestion: null, statusMessage: 'Stroke kept as ink only — discarded forge.' })
+      setState({ pending: null, statusMessage: 'Stroke discarded.' })
       return
     }
-    // Force kind via synthetic candidate when primary mismatches
-    if (sug.primary && shapeToObjectKind(sug.primary.kind) === choice) {
-      this.createFromCandidate(sug.primary, sug.points)
-      return
-    }
-    const alt = sug.alternatives.find((a) => shapeToObjectKind(a.kind) === choice)
-    if (alt) {
-      this.createFromCandidate(alt, sug.points)
-      return
-    }
-    // Manual force: build minimal candidate from stroke bounds
-    this.forceCreateKind(choice, sug.points)
+    const candidate = [pending.primary, ...pending.alternatives]
+      .find((c) => c && shapeToObjectKind(c.kind) === choice)
+    addFromCandidate(candidate ?? candidateFromBounds(choice, pending.points))
   },
 
-  forceCreateKind(kind: 'ramp' | 'ball' | 'platform', points: Vec2[]): void {
-    if (points.length < 2) {
-      setState({ suggestion: null, statusMessage: 'Not enough points.' })
+  selectAt(screenPoint: Vec2): void {
+    const world = screenToWorld(screenPoint, state.view)
+    const hit = hitTest(objectsWithLivePoses(), world, HIT_TOLERANCE)
+    if (!hit) {
+      setState({
+        selectedId: null,
+        statusMessage: 'Drag to draw. Click a shape to select it.',
+      })
       return
     }
-    const start = points[0]!
-    const end = points[points.length - 1]!
-    if (kind === 'ramp') {
-      this.createFromCandidate(
-        {
-          kind: 'line',
-          params: { x1: start.x, y1: start.y, x2: end.x, y2: end.y },
-          quality: 0.5,
-          metrics: {},
-        },
-        points,
-      )
+    setState({ selectedId: hit.id, statusMessage: `Selected ${hit.kind}. Press Delete to remove it.` })
+  },
+
+  clearSelection(): void {
+    if (state.selectedId) setState({ selectedId: null })
+  },
+
+  deleteSelected(): void {
+    const target = state.objects.find((o) => o.id === state.selectedId)
+    if (!target) {
+      setState({ selectedId: null, statusMessage: 'Click a shape to select it, then press Delete.' })
       return
     }
-    if (kind === 'ball') {
-      const xs = points.map((p) => p.x)
-      const ys = points.map((p) => p.y)
-      const cx = (Math.min(...xs) + Math.max(...xs)) / 2
-      const cy = (Math.min(...ys) + Math.max(...ys)) / 2
-      const radius = Math.max(
-        20,
-        (Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys)) / 4,
-      )
-      this.createFromCandidate(
-        { kind: 'circle', params: { cx, cy, radius }, quality: 0.5, metrics: {} },
-        points,
-      )
-      return
-    }
-    const xs = points.map((p) => p.x)
-    const ys = points.map((p) => p.y)
-    const minX = Math.min(...xs)
-    const maxX = Math.max(...xs)
-    const minY = Math.min(...ys)
-    const maxY = Math.max(...ys)
-    this.createFromCandidate(
-      {
-        kind: 'rectangle',
-        params: {
-          corners: [
-            { x: minX, y: minY },
-            { x: maxX, y: minY },
-            { x: maxX, y: maxY },
-            { x: minX, y: maxY },
-          ],
-        },
-        quality: 0.5,
-        metrics: {},
-      },
-      points,
-    )
+    commit({
+      objects: state.objects.filter((o) => o !== target),
+      selectedId: null,
+      statusMessage: `Deleted ${target.kind}.`,
+    })
   },
 
   addBall(): void {
-    if (replayLocked()) return
-    if (state.objects.length >= MAX_OBJECTS) {
-      setState({ objectLimitHit: true, statusMessage: `Object limit (${MAX_OBJECTS}) reached.` })
-      return
-    }
-    pushHistory()
-    const ball = createBallAt({ x: -3, y: 3.5, z: 0 }, state.objects, false)
-    if (!ball) return
-    const objects = [...state.objects, ball]
-    logEvent({
-      type: 'OBJECT_CREATED',
-      id: makeEventId(),
-      t: nowMs(),
-      objectId: ball.id,
-      kind: 'ball',
-    })
-    setState({
-      objects,
-      statusMessage: 'Ball added (static until Drop). Spawn offset clears colliders.',
-    })
-    snap('add-ball')
+    addObject(createBallAt(SPAWN_POINT, state.objects), 'Added a ball. Press Drop to release it.')
   },
 
-  dropBall(): void {
-    if (replayLocked()) return
-    const staticBall = state.objects.find((o) => o.kind === 'ball' && !o.dynamic)
-    if (staticBall) {
-      pushHistory()
-      const objects = state.objects.map((o): SceneObject => {
-        if (o.id === staticBall.id && o.kind === 'ball') {
-          return { ...o, dynamic: true }
-        }
-        return o
-      })
-      logEvent({
-        type: 'BALL_DROPPED',
-        id: makeEventId(),
-        t: nowMs(),
-        objectId: staticBall.id,
-      })
-      setState({ objects, statusMessage: 'Ball dropped — watch the physics.' })
-      snap('drop-ball')
+  /** Release every waiting ball, or drop a new one when none are waiting. */
+  drop(): void {
+    const waiting = state.objects.filter((o) => o.kind === 'ball' && !o.dynamic)
+    if (waiting.length === 0) {
+      addObject(createBallAt(SPAWN_POINT, state.objects, true), 'Dropped a new ball.')
       return
     }
-
-    // No static ball — spawn one already dynamic (if under the object cap)
-    if (state.objects.length >= MAX_OBJECTS) {
-      setState({
-        objectLimitHit: true,
-        statusMessage: `Object limit (${MAX_OBJECTS}) reached — cannot spawn a ball to drop.`,
-      })
-      return
-    }
-
-    const ball = createBallAt({ x: -3, y: 3.5, z: 0 }, state.objects, true)
-    if (!ball) {
-      setState({ statusMessage: 'No ball to drop.' })
-      return
-    }
-
-    pushHistory()
-    logEvent({
-      type: 'BALL_DROPPED',
-      id: makeEventId(),
-      t: nowMs(),
-      objectId: ball.id,
+    commit({
+      objects: state.objects.map((o) =>
+        o.kind === 'ball' && !o.dynamic ? { ...o, dynamic: true, releasedFrom: o.releasedFrom ?? { ...o.position } } : o,
+      ),
+      statusMessage: `Dropped ${count(waiting.length, 'ball')}.`,
     })
-    setState({
-      objects: [...state.objects, ball],
-      objectLimitHit: false,
-      statusMessage: 'Ball dropped — watch the physics.',
-    })
-    snap('drop-ball')
   },
 
-  dropAllBalls(): void {
-    if (replayLocked()) return
-    pushHistory()
-    const objects = state.objects.map((o) =>
-      o.kind === 'ball' ? ({ ...o, dynamic: true } satisfies BallObject) : o,
-    )
-    setState({ objects, statusMessage: 'All balls set dynamic.' })
-    snap('drop-all')
+  /** Put every released ball back where Drop released it, waiting again. */
+  restart(): void {
+    const released = state.objects.filter((o) => o.kind === 'ball' && o.releasedFrom)
+    if (released.length === 0) {
+      setState({ statusMessage: 'Nothing to restart. Press Drop first.' })
+      return
+    }
+    commit({
+      objects: state.objects.map((o) => {
+        if (o.kind !== 'ball' || !o.releasedFrom) return o
+        const { releasedFrom, ...ball } = o
+        return { ...ball, position: releasedFrom, dynamic: false }
+      }),
+      statusMessage: `Restarted ${count(released.length, 'ball')}. Press Drop to run again.`,
+    })
   },
 
-  resetScene(): void {
-    if (replayLocked()) return
-    pushHistory()
-    logEvent({ type: 'SCENE_RESET', id: makeEventId(), t: nowMs() })
-    clearAllLiveBallPoses()
-    setState({
-      objects: [],
-      liveStroke: [],
-      suggestion: null,
-      objectLimitHit: false,
-      statusMessage: 'Scene reset.',
-      sceneName: 'Untitled',
+  /** Stop every moving ball where it is. */
+  freezeBalls(): void {
+    const live = objectsWithLivePoses()
+    const moving = live.filter((o) => o.kind === 'ball' && o.dynamic).length
+    if (moving === 0) {
+      setState({ statusMessage: 'No moving balls to freeze.' })
+      return
+    }
+    commit({
+      objects: live.map((o) => (o.kind === 'ball' && o.dynamic ? { ...o, dynamic: false } : o)),
+      statusMessage: `Froze ${count(moving, 'ball')}.`,
     })
-    snap('reset')
+  },
+
+  clearScene(): void {
+    if (state.objects.length === 0) {
+      setState({ statusMessage: 'The scene is already empty.' })
+      return
+    }
+    const previous = snapshot()
+    replaceScene({ ...previous, objects: [], sceneName: 'Untitled' }, {
+      exampleId: null,
+      undoStack: [...state.undoStack, previous].slice(-MAX_HISTORY),
+      redoStack: [],
+      statusMessage: 'Scene cleared. Press Undo to bring it back.',
+    })
   },
 
   undo(): void {
-    if (replayLocked()) return
-    if (state.history.length === 0) {
+    const previous = state.undoStack.at(-1)
+    if (!previous) {
       setState({ statusMessage: 'Nothing to undo.' })
       return
     }
-    const history = state.history.slice()
-    const prev = history.pop()!
-    logEvent({ type: 'UNDO', id: makeEventId(), t: nowMs() })
-    clearAllLiveBallPoses()
-    setState({
-      objects: prev.objects,
-      physics: { ...prev.physics },
-      sceneName: prev.sceneName,
-      history,
-      suggestion: null,
-      objectLimitHit: prev.objects.length >= MAX_OBJECTS,
-      statusMessage: 'Undo.',
+    replaceScene(previous, {
+      undoStack: state.undoStack.slice(0, -1),
+      redoStack: [...state.redoStack, snapshot()],
+      statusMessage: 'Undone.',
     })
-    snap('undo')
   },
 
-  setPhysics(partial: Partial<PhysicsParams>): void {
-    if (replayLocked()) return
-    const physics = { ...state.physics }
-    for (const [key, min, max] of [['gravity', GRAVITY_MIN, GRAVITY_MAX], ['bounce', BOUNCE_MIN, BOUNCE_MAX], ['friction', FRICTION_MIN, FRICTION_MAX]] as const) {
-      const value = partial[key]
-      if (typeof value === 'number' && Number.isFinite(value)) physics[key] = Math.max(min, Math.min(max, value))
+  redo(): void {
+    const next = state.redoStack.at(-1)
+    if (!next) {
+      setState({ statusMessage: 'Nothing to redo.' })
+      return
     }
-    if (typeof partial.paused === 'boolean') physics.paused = partial.paused
-    logEvent({
-      type: 'PARAMS_CHANGED',
-      id: makeEventId(),
-      t: nowMs(),
-      gravity: physics.gravity,
-      bounce: physics.bounce,
-      friction: physics.friction,
+    replaceScene(next, {
+      undoStack: [...state.undoStack, snapshot()],
+      redoStack: state.redoStack.slice(0, -1),
+      statusMessage: 'Redone.',
     })
+  },
+
+  /** Load an example or imported file as an undoable edit. */
+  loadScene(scene: LoadedScene, options: { exampleId?: string; message: string }): void {
+    const objects = cloneObjects(scene.objects).map((o) =>
+      o.kind === 'ball' && o.dynamic ? { ...o, releasedFrom: { ...o.position } } : o,
+    )
+    replaceScene({ objects, physics: scene.physics, sceneName: scene.name }, {
+      exampleId: options.exampleId ?? null,
+      undoStack: [...state.undoStack, snapshot()].slice(-MAX_HISTORY),
+      redoStack: [],
+      statusMessage: options.message,
+    })
+  },
+
+  closeExampleNotes(): void {
+    setState({ exampleId: null })
+  },
+
+  setPhysics(partial: Partial<Omit<PhysicsParams, 'paused'>>): void {
+    const physics = { ...state.physics }
+    if (Number.isFinite(partial.gravity)) physics.gravity = clamp(partial.gravity!, GRAVITY_MIN, GRAVITY_MAX)
+    if (Number.isFinite(partial.bounce)) physics.bounce = clamp(partial.bounce!, BOUNCE_MIN, BOUNCE_MAX)
+    if (Number.isFinite(partial.friction)) physics.friction = clamp(partial.friction!, FRICTION_MIN, FRICTION_MAX)
     setState({ physics })
   },
 
   togglePause(): void {
-    if (replayLocked()) return
     const paused = !state.physics.paused
-    setState({
-      physics: { ...state.physics, paused },
-      statusMessage: paused ? 'Paused.' : 'Resumed.',
-    })
-    logEvent({
-      type: paused ? 'PHYSICS_PAUSED' : 'PHYSICS_RESUMED',
-      id: makeEventId(),
-      t: nowMs(),
-    })
+    setState({ physics: { ...state.physics, paused }, statusMessage: paused ? 'Paused.' : 'Running.' })
   },
 
-  loadExample(objects: SceneObject[], name: string, physics?: PhysicsParams): void {
-    if (replayLocked()) return
-    pushHistory()
-    clearAllLiveBallPoses()
-    const cloned = cloneObjects(objects)
-    setState({
-      objects: cloned,
-      physics: physics ? { ...physics } : state.physics,
-      sceneName: name,
-      suggestion: null,
-      liveStroke: [],
-      objectLimitHit: cloned.length >= MAX_OBJECTS,
-      statusMessage: `Loaded “${name}”. Press Drop ball.`,
-    })
-    logEvent({
-      type: 'SCENE_LOADED',
-      id: makeEventId(),
-      t: nowMs(),
-      name,
-    })
-    snap(`load:${name}`)
+  setSceneName(name: string): void {
+    const sceneName = name.trim().slice(0, 80) || 'Untitled'
+    if (sceneName !== state.sceneName) setState({ sceneName, statusMessage: `Renamed the scene to “${sceneName}”.` })
   },
 
-  loadRampAndBall(): void {
-    this.loadExample(rampAndBall.objects, rampAndBall.name, rampAndBall.physics)
-  },
-
-  replaceObjects(objects: SceneObject[], name: string, physics: PhysicsParams): void {
-    if (replayLocked()) return
-    pushHistory()
-    clearAllLiveBallPoses()
-    const cloned = cloneObjects(objects)
-    setState({
-      objects: cloned,
-      physics: { ...physics },
-      sceneName: name,
-      suggestion: null,
-      objectLimitHit: cloned.length >= MAX_OBJECTS,
-      statusMessage: `Imported “${name}”.`,
-    })
-    snap(`import:${name}`)
+  /** Scene as currently displayed, for saving. */
+  exportState(): LoadedScene {
+    return { name: state.sceneName, objects: objectsWithLivePoses(), physics: state.physics }
   },
 
   dismissTutorial(): void {
     try {
       localStorage.setItem(TUTORIAL_KEY, '1')
     } catch {
-      /* ignore */
+      // Storage can be unavailable (private mode); the tutorial then shows again next visit.
     }
     setState({ tutorialDismissed: true })
   },
 
-  showTutorial(): void {
-    try {
-      localStorage.removeItem(TUTORIAL_KEY)
-    } catch {
-      /* ignore */
-    }
-    setState({ tutorialDismissed: false })
+  /** Hide the tutorial for this visit without remembering it (example links). */
+  skipTutorial(): void {
+    setState({ tutorialDismissed: true })
   },
 
   setWebcamEnabled(on: boolean): void {
     setState({
       webcamEnabled: on,
       gestureLabel: on ? 'Webcam starting…' : 'Mouse',
-      statusMessage: on
-        ? 'Webcam on — index draws, pinch pens up.'
-        : 'Mouse mode.',
+      statusMessage: on ? 'Starting the webcam…' : 'Mouse drawing.',
     })
   },
 
   setGestureLabel(label: string): void {
-    setState({ gestureLabel: label })
+    if (label !== state.gestureLabel) setState({ gestureLabel: label })
   },
 
-  setStatus(msg: string): void {
-    setState({ statusMessage: msg })
-  },
-
-  setSceneName(name: string): void {
-    if (replayLocked()) return
-    const trimmed = name.trim().slice(0, 80) || 'Untitled'
-    setState({ sceneName: trimmed, statusMessage: `Scene renamed to "${trimmed}".` })
-  },
-
-  /** Soft-reset dynamics: freeze every ball without clearing the scene. */
-  freezeBalls(): void {
-    if (replayLocked()) return
-    const balls = state.objects.filter((o) => o.kind === 'ball' && o.dynamic)
-    if (balls.length === 0) {
-      setState({ statusMessage: 'No moving balls to freeze.' })
-      return
-    }
-    // Persist live Rapier poses into store before remounting as kinematic.
-    const withPoses = mergeLiveBallPoses(state.objects)
-    state = { ...state, objects: withPoses }
-    pushHistory()
-    const objects = withPoses.map((o) =>
-      o.kind === 'ball' && o.dynamic ? { ...o, dynamic: false } : o,
-    )
-    clearAllLiveBallPoses()
-    setState({
-      objects,
-      statusMessage: `Froze ${balls.length} ball${balls.length === 1 ? '' : 's'}.`,
-    })
-  },
-
-  /** Merge live Rapier poses into store (call before JSON export). */
-  syncLiveBallPoses(): void {
-    const objects = mergeLiveBallPoses(state.objects)
-    if (objects !== state.objects) setState({ objects })
-  },
-
-  setReplayMode(on: boolean): void {
-    if (on === state.replayMode) return
-    if (on) {
-      liveScene = {
-        objects: cloneObjects(mergeLiveBallPoses(state.objects)),
-        physics: { ...state.physics },
-      }
-      setState({ replayMode: true })
-      return
-    }
-    const live = liveScene
-    liveScene = null
-    clearAllLiveBallPoses()
-    setState({
-      replayMode: false,
-      ...(live && {
-        objects: live.objects,
-        physics: live.physics,
-        restoreRevision: state.restoreRevision + 1,
-        statusMessage: 'Replay closed — live scene restored.',
-      }),
-    })
-  },
-
-  applySnapshotObjects(objects: SceneObject[], physics: PhysicsParams): void {
-    if (!state.replayMode) return
-    clearAllLiveBallPoses()
-    setState({
-      objects: cloneObjects(objects),
-      physics: { ...physics },
-      restoreRevision: state.restoreRevision + 1,
-    })
+  setStatus(statusMessage: string): void {
+    setState({ statusMessage })
   },
 
   /** Test helper */
-  _resetForTests(): void {
+  _resetForTests(overrides: Partial<AppState> = {}): void {
     clearAllLiveBallPoses()
-    liveScene = null
-    state = createInitialState()
-    state.tutorialDismissed = true
-    emit()
+    state = { ...createInitialState(), tutorialDismissed: true, ...overrides }
+    for (const listener of listeners) listener()
   },
 }

@@ -79,6 +79,11 @@ function isVec3(v: unknown): v is SerializedVec3 {
   )
 }
 
+/** Copy only the coordinates so unknown keys never reach the scene. */
+function vec3({ x, y, z }: SerializedVec3): SerializedVec3 {
+  return { x, y, z }
+}
+
 function utf8ByteLength(raw: string): number {
   return new TextEncoder().encode(raw).length
 }
@@ -216,8 +221,8 @@ function parseObject(
     if (!isWithinWorldBounds(o.start) || !isWithinWorldBounds(o.end)) {
       return { ok: false, error: `Object coordinates must be within ±${MAX_WORLD_COORDINATE} world units.` }
     }
-    base.start = { ...o.start }
-    base.end = { ...o.end }
+    base.start = vec3(o.start)
+    base.end = vec3(o.end)
     const width = isNum(o.width) ? o.width : 0.28
     const thickness = isNum(o.thickness) ? o.thickness : 0.35
     if (!isPositiveSize(width) || !isPositiveSize(thickness)) {
@@ -234,7 +239,7 @@ function parseObject(
     if (!isPositiveSize(radius)) {
       return { ok: false, error: 'Ball radius must be positive and within limits.' }
     }
-    base.position = { ...o.position }
+    base.position = vec3(o.position)
     base.radius = radius
     base.dynamic = typeof o.dynamic === 'boolean' ? o.dynamic : false
   } else {
@@ -244,16 +249,12 @@ function parseObject(
     if (!isWithinWorldBounds(o.center)) {
       return { ok: false, error: `Object coordinates must be within ±${MAX_WORLD_COORDINATE} world units.` }
     }
-    base.center = { ...o.center }
+    base.center = vec3(o.center)
     const he = o.halfExtents
     if (!isPositiveSize(he.x) || !isPositiveSize(he.y) || !isPositiveSize(he.z)) {
       return { ok: false, error: 'Platform halfExtents must be positive and within limits.' }
     }
-    base.halfExtents = {
-      x: Math.min(he.x, MAX_OBJECT_SIZE),
-      y: Math.min(he.y, MAX_OBJECT_SIZE),
-      z: Math.min(he.z, MAX_OBJECT_SIZE),
-    }
+    base.halfExtents = vec3(he)
     base.rotationZ = isNum(o.rotationZ) ? o.rotationZ : 0
   }
 

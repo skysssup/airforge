@@ -41,7 +41,11 @@ export function pointLineDistance(p: Vec2, a: Vec2, b: Vec2): number {
   return dist(p, proj)
 }
 
-/** Welzl-style / bounding: minimum enclosing circle via iterative approx (Ritter + refine). */
+/**
+ * Approximate enclosing circle: centered between the two points farthest
+ * apart, with a radius that reaches every point. Exact for round strokes,
+ * slightly larger than the true minimum for other shapes.
+ */
 export function minEnclosingCircle(points: Vec2[]): { cx: number; cy: number; r: number } {
   if (points.length === 0) return { cx: 0, cy: 0, r: 0 }
   if (points.length === 1) {

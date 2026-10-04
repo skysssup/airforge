@@ -1,7 +1,7 @@
 /**
- * Stroke capture + smoothing.
- * Moving-average window of 4; cancel on hand loss
- * (never connect distant points across a gap).
+ * Stroke capture. Mouse points are kept as drawn. Webcam points are smoothed
+ * with a moving average of 4, and a jump larger than MAX_POINT_GAP marks the
+ * stroke for cancellation so tracking glitches never connect distant points.
  */
 
 import type { Vec2 } from '../events/types'
@@ -10,51 +10,45 @@ import { dist2 } from '../coords/transforms'
 export const SMOOTH_WINDOW = 4
 export const MAX_STROKE_POINTS = 2000
 export const MIN_POINT_SPACING = 1.5
-/** Reject / cancel when a new point teleports farther than this (px). */
 export const MAX_POINT_GAP = 160
 
+export type StrokeSource = 'mouse' | 'webcam'
+
 export interface StrokeState {
-  id: string
-  source: 'mouse' | 'webcam'
+  source: StrokeSource
   points: Vec2[]
   rawBuffer: Vec2[]
   active: boolean
-  /** Set when a raw point jumped farther than MAX_POINT_GAP — callers must cancel. */
+  /** Set when a webcam point jumped farther than MAX_POINT_GAP; callers must cancel. */
   gapExceeded: boolean
 }
 
-export function createStroke(id: string, source: 'mouse' | 'webcam'): StrokeState {
-  return { id, source, points: [], rawBuffer: [], active: true, gapExceeded: false }
+export function createStroke(source: StrokeSource): StrokeState {
+  return { source, points: [], rawBuffer: [], active: true, gapExceeded: false }
 }
 
-/** Push a raw point; returns the smoothed point if accepted, else null. */
+/** Add a raw input point; returns the stored point, or null when it was skipped. */
 export function addRawPoint(stroke: StrokeState, raw: Vec2): Vec2 | null {
   if (!stroke.active || !Number.isFinite(raw.x) || !Number.isFinite(raw.y)) return null
   if (stroke.points.length >= MAX_STROKE_POINTS) return null
+  const last = stroke.points.at(-1)
 
-  // Gap against the *raw* tip so smoothing cannot dilute a teleport jump
-  if (stroke.points.length > 0) {
-    const last = stroke.points[stroke.points.length - 1]!
-    if (dist2(last, raw) > MAX_POINT_GAP) {
+  let point = raw
+  if (stroke.source === 'webcam') {
+    // Compare raw positions so smoothing lag is not mistaken for a jump.
+    const lastRaw = stroke.rawBuffer.at(-1)
+    if (lastRaw && dist2(lastRaw, raw) > MAX_POINT_GAP) {
       stroke.gapExceeded = true
       return null
     }
+    stroke.rawBuffer.push(raw)
+    if (stroke.rawBuffer.length > SMOOTH_WINDOW) stroke.rawBuffer.shift()
+    point = averagePoints(stroke.rawBuffer)
   }
 
-  stroke.rawBuffer.push(raw)
-  if (stroke.rawBuffer.length > SMOOTH_WINDOW) {
-    stroke.rawBuffer.shift()
-  }
-
-  const smoothed = averagePoints(stroke.rawBuffer)
-
-  if (stroke.points.length > 0) {
-    const last = stroke.points[stroke.points.length - 1]!
-    if (dist2(last, smoothed) < MIN_POINT_SPACING) return null
-  }
-
-  stroke.points.push(smoothed)
-  return smoothed
+  if (last && dist2(last, point) < MIN_POINT_SPACING) return null
+  stroke.points.push(point)
+  return point
 }
 
 export function endStroke(stroke: StrokeState): Vec2[] {
@@ -77,6 +71,5 @@ function averagePoints(pts: Vec2[]): Vec2 {
     x += p.x
     y += p.y
   }
-  const n = pts.length || 1
-  return { x: x / n, y: y / n }
+  return { x: x / pts.length, y: y / pts.length }
 }

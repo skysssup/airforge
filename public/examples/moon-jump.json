@@ -1,75 +1,76 @@
 {
   "format": "airforge-scene",
   "version": 1,
-  "name": "Ramp & Ball",
+  "name": "Moon Jump",
   "exportedAt": "2026-10-04T00:00:00.000Z",
   "physics": {
-    "gravity": 9.81,
+    "gravity": 1.62,
     "bounce": 0.35,
     "friction": 0.55,
     "paused": false
   },
   "objects": [
     {
-      "id": "ramp",
+      "id": "slope",
       "kind": "ramp",
       "createdAt": 0,
       "start": {
-        "x": -6.5,
-        "y": 2.6,
+        "x": -7,
+        "y": 3.4,
         "z": 0
       },
       "end": {
-        "x": 1.5,
-        "y": -1.6,
+        "x": -2.5,
+        "y": -0.6,
         "z": 0
       },
       "width": 0.28,
       "thickness": 0.35
     },
     {
-      "id": "cup-floor",
-      "kind": "platform",
+      "id": "kicker",
+      "kind": "ramp",
       "createdAt": 0,
-      "center": {
-        "x": 4.4,
-        "y": -3,
+      "start": {
+        "x": -2.7,
+        "y": -0.75,
         "z": 0
       },
-      "halfExtents": {
-        "x": 1.6,
-        "y": 0.12,
-        "z": 0.2
+      "end": {
+        "x": -0.8,
+        "y": -0.15,
+        "z": 0
       },
-      "rotationZ": 0
+      "width": 0.28,
+      "thickness": 0.35
     },
     {
-      "id": "cup-left",
+      "id": "bin-left",
       "kind": "platform",
       "createdAt": 0,
       "center": {
-        "x": 2.8,
-        "y": -2.6,
+        "x": 1.4,
+        "y": -3.5,
         "z": 0
       },
       "halfExtents": {
-        "x": 0.4,
+        "x": 0.5,
         "y": 0.12,
         "z": 0.2
       },
       "rotationZ": 1.570796
     },
     {
-      "id": "cup-right",
+      "id": "bin-right",
       "kind": "platform",
       "createdAt": 0,
       "center": {
-        "x": 6,
-        "y": -2.3,
+        "x": 5.4,
+        "y": -3.2,
         "z": 0
       },
       "halfExtents": {
-        "x": 0.7,
+        "x": 0.8,
         "y": 0.12,
         "z": 0.2
       },
@@ -80,8 +81,8 @@
       "kind": "ball",
       "createdAt": 0,
       "position": {
-        "x": -6,
-        "y": 3.4,
+        "x": -6.6,
+        "y": 3.9,
         "z": 0
       },
       "radius": 0.35,

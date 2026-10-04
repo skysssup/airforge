@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.1",
   "type": "module",
-  "description": "Draw shapes into a local Rapier/Three physics scene. Optional webcam gestures.",
+  "description": "Sketch ramps, balls, and platforms in the browser and simulate them with Rapier physics.",
   "author": "skysssup",
   "license": "MIT",
   "engines": {
@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",
-    "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "@react-three/rapier": "^2.2.0",
     "react": "^19.2.8",
@@ -27,6 +26,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@dimforge/rapier3d-compat": "0.19.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^24.13.3",

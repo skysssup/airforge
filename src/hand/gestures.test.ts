@@ -142,3 +142,9 @@ describe('gesture hysteresis + hand loss', () => {
     expect(r.cancelStroke).toBe(false)
   })
 })
+
+it('loads the MediaPipe runtime matching the installed package version', async () => {
+  const { MEDIAPIPE_VERSION } = await import('./landmarker')
+  const [dependencies] = Object.values(import.meta.glob<Record<string, string>>('../../package.json', { eager: true, import: 'dependencies' }))
+  expect(dependencies!['@mediapipe/tasks-vision']).toBe(MEDIAPIPE_VERSION)
+})

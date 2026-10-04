@@ -1,7 +1,7 @@
 /**
- * Side-channel for live Rapier ball translations.
- * Updated from BallBody each frame; read into the store on Freeze / Save JSON
- * so remounted bodies and exports match what the user saw.
+ * Live positions of moving balls, written by BallBody every frame. The store
+ * reads them for Freeze, Save, selection, and undo snapshots so those match
+ * what is on screen rather than where each ball started.
  */
 import type { Vec3 } from '../events/types'
 

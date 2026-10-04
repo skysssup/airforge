@@ -1,81 +1,66 @@
 import { beforeEach, expect, it } from 'vitest'
-import RAPIER from '@dimforge/rapier3d-compat'
 import { appStore } from '../store/appStore'
 import { viewBoundsFor } from '../coords/camera'
-import { setLiveBallPose } from '../physics/livePoses'
-import { GROUND_HALF_HEIGHT, GROUND_Y } from '../physics/params'
-import { rampPose } from '../scene/objects'
+import { clearAllLiveBallPoses, setLiveBallPose } from '../physics/livePoses'
+import { EXAMPLES, loadExampleScene } from '../examples'
+import { createHeadlessWorld } from '../test/headlessWorld'
+import { cleanCircle, cleanDiagonalLine, cleanRectangle } from '../test/strokes'
 import { exportSceneJson, importSceneJson } from './serialize'
+import type { BallObject } from '../scene/objects'
 
-beforeEach(() => appStore._resetForTests())
+beforeEach(() => {
+  appStore._resetForTests()
+  clearAllLiveBallPoses()
+})
 
-it.each([[2560, 720], [390, 844], [320, 1600], [4096, 256]])(
-  'preserves drawn geometry through save/import at %ix%i',
+function saveAndReopen() {
+  const { name, objects, physics } = appStore.exportState()
+  const result = importSceneJson(exportSceneJson(name, objects, physics))
+  if (!result.ok) throw new Error(result.error)
+  return result
+}
+
+it.each([[2560, 720], [390, 844], [320, 1600], [1280, 720]])(
+  'preserves drawn geometry through Save and Open at %ix%i',
   (width, height) => {
     appStore.setView(viewBoundsFor(width, height))
-    appStore.createFromCandidate({
-      kind: 'line', quality: 1, metrics: {},
-      params: { x1: width * 0.8, y1: height * 0.2, x2: width * 0.95, y2: height * 0.2 },
-    })
-    appStore.createFromCandidate({
-      kind: 'circle', quality: 1, metrics: {},
-      params: { cx: width * 0.1, cy: height * 0.1, radius: 30 },
-    })
-    appStore.createFromCandidate({
-      kind: 'rectangle', quality: 1, metrics: {},
-      params: { corners: [
-        { x: width * 0.8, y: height * 0.6 },
-        { x: width * 0.9, y: height * 0.6 },
-        { x: width * 0.9, y: height * 0.7 },
-        { x: width * 0.8, y: height * 0.7 },
-      ] },
-    })
+    const scale = Math.min(width / 1280, height / 720)
+    const fit = (points: { x: number; y: number }[]) => points.map((p) => ({ x: p.x * scale, y: p.y * scale }))
+    appStore.endStroke(fit(cleanDiagonalLine()))
+    appStore.endStroke(fit(cleanCircle(900, 200, 60)))
+    appStore.endStroke(fit(cleanRectangle(200, 520, 320, 60)))
     const { objects, physics, sceneName } = appStore.getState()
-    expect(objects).toHaveLength(3)
-    const result = importSceneJson(exportSceneJson(sceneName, objects, physics))
-    if (!result.ok) throw new Error(result.error)
-    expect(result.objects).toEqual(objects)
-    expect(result.physics).toEqual(physics)
+    expect(objects.map((o) => o.kind)).toEqual(['ramp', 'ball', 'platform'])
+    const reopened = saveAndReopen()
+    expect(reopened.objects).toEqual(objects)
+    expect(reopened.physics).toEqual(physics)
+    expect(reopened.name).toBe(sceneName)
   },
 )
 
-it.each([120, 600])('preserves a frozen ball after %i real physics steps', async steps => {
-  await RAPIER.init()
-  appStore.loadRampAndBall()
-  appStore.dropBall()
+it('saves a ball frozen after real physics steps exactly where Rapier left it', async () => {
+  const scene = loadExampleScene(EXAMPLES[0]!)
+  appStore.loadScene(scene, { message: 'opened' })
+  appStore.drop()
   const { objects, physics } = appStore.getState()
-  const world = new RAPIER.World({ x: 0, y: -physics.gravity, z: 0 })
-  try {
-    const ground = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, GROUND_Y, 0))
-    world.createCollider(RAPIER.ColliderDesc.cuboid(20, GROUND_HALF_HEIGHT, 4).setFriction(physics.friction).setRestitution(physics.bounce * 0.3), ground)
-    for (const object of objects) {
-      if (object.kind === 'ball') continue
-      const pose = object.kind === 'ramp' ? rampPose(object) : object
-      const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed()
-        .setTranslation(pose.center.x, pose.center.y, pose.center.z)
-        .setRotation({ x: 0, y: 0, z: Math.sin(pose.rotationZ / 2), w: Math.cos(pose.rotationZ / 2) }))
-      const half = object.kind === 'ramp'
-        ? { x: rampPose(object).length / 2, y: object.width, z: object.thickness / 2 }
-        : object.halfExtents
-      world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z)
-        .setFriction(physics.friction).setRestitution(physics.bounce * (object.kind === 'ramp' ? 0.4 : 0.35)), body)
-    }
-    const ball = objects.find(o => o.kind === 'ball')!
-    if (ball.kind !== 'ball') throw new Error('Expected a ball')
-    const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(ball.position.x, ball.position.y, ball.position.z)
-      .setLinearDamping(0.05).setAngularDamping(0.05).enabledTranslations(true, true, false))
-    world.createCollider(RAPIER.ColliderDesc.ball(ball.radius).setMass(1)
-      .setFriction(physics.friction).setRestitution(physics.bounce), body)
-    for (let i = 0; i < steps; i++) world.step()
-    expect(body.translation().y).toBeLessThan(ball.position.y)
-    setLiveBallPose(ball.id, body.translation())
-    appStore.freezeBalls()
-    const frozen = appStore.getState()
-    const result = importSceneJson(exportSceneJson(frozen.sceneName, frozen.objects, frozen.physics))
-    if (!result.ok) throw new Error(result.error)
-    expect(result.objects).toEqual(frozen.objects)
-  } finally {
-    world.free()
-  }
+  const world = await createHeadlessWorld(objects, physics)
+  world.run(2)
+  const ball = objects.find((o): o is BallObject => o.kind === 'ball')!
+  const live = world.position(ball.id)
+  world.free()
+  expect(live.x).toBeGreaterThan(ball.position.x + 1)
+  setLiveBallPose(ball.id, live)
+  appStore.freezeBalls()
+  const reopened = saveAndReopen()
+  expect(reopened.objects.find((o) => o.id === ball.id)).toEqual({ ...ball, position: live, dynamic: false, releasedFrom: undefined })
+  expect(reopened.objects).toEqual(appStore.getState().objects.map((o) => (o.kind === 'ball' ? { ...o, releasedFrom: undefined } : o)))
+})
+
+it('saves the live position of a ball that is still moving', () => {
+  appStore.loadScene(loadExampleScene(EXAMPLES[0]!), { message: 'opened' })
+  appStore.drop()
+  const ball = appStore.getState().objects.find((o) => o.kind === 'ball')!
+  setLiveBallPose(ball.id, { x: 3.5, y: -2.4, z: 0 })
+  const saved = saveAndReopen().objects.find((o) => o.id === ball.id)
+  expect(saved).toMatchObject({ dynamic: true, position: { x: 3.5, y: -2.4, z: 0 } })
 })

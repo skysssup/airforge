@@ -123,10 +123,3 @@ export function stepGestureMachine(
 
   return { stable, cancelStroke: false, handLost: false }
 }
-
-export function resetGestureMachine(state: GestureMachineState): void {
-  state.prevStable = null
-  state.rawPrev = null
-  state.stableCount = 0
-  state.lostFrames = 0
-}

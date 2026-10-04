@@ -19,12 +19,11 @@ const SIZES: Array<[number, number]> = [
   [390, 844],
 ]
 
+/** Same placement as SceneCanvas: looking down -Z from (0, centerY, distance). */
 function renderCamera(width: number, height: number): PerspectiveCamera {
   const view = viewBoundsFor(width, height)
   const camera = new PerspectiveCamera(CAMERA_FOV_DEG, width / height, CAMERA_NEAR, CAMERA_FAR)
-  camera.position.set(0, 0, cameraDistanceFor(DEFAULT_VIEW))
-  camera.lookAt(0, 0, 0)
-  camera.position.set(0, 0, cameraDistanceFor(view))
+  camera.position.set(0, view.centerY, cameraDistanceFor(view))
   camera.updateMatrixWorld(true)
   return camera
 }
@@ -60,10 +59,15 @@ describe('draw-plane camera', () => {
     }
   })
 
-  it('puts the world origin at the center of the viewport', () => {
+  it('puts the world origin at the center of a landscape viewport', () => {
     const px = projectToPixels(renderCamera(1280, 720), 0, 0, 1280, 720)
     expect(px.x).toBeCloseTo(640, 6)
     expect(px.y).toBeCloseTo(360, 6)
+  })
+
+  it.each(SIZES)('keeps the bottom of the world region at the bottom edge at %ix%i', (width, height) => {
+    const camera = renderCamera(width, height)
+    expect(projectToPixels(camera, 0, -WORLD_HALF_HEIGHT, width, height).y).toBeCloseTo(height, 3)
   })
 
   it.each(SIZES)('keeps the whole world region visible at %ix%i', (width, height) => {

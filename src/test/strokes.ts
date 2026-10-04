@@ -1,4 +1,4 @@
-/** Synthetic stroke fixtures for recognition tests & eval harness. */
+/** Synthetic screen-space strokes for recognition and store tests. */
 
 import type { Vec2 } from '../events/types'
 

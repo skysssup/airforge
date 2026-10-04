@@ -1,202 +1,249 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { appStore } from './appStore'
-import { cleanCircle, cleanDiagonalLine } from '../fixtures/strokes'
-import { rampAndBall } from '../fixtures/scenes'
-import { MAX_OBJECTS, MAX_WORLD_COORDINATE } from '../physics/params'
+import { cleanCircle, cleanDiagonalLine, cleanRectangle, ambiguousScribble } from '../test/strokes'
+import { EXAMPLES, loadExampleScene } from '../examples'
+import { MAX_OBJECTS, MAX_WORLD_COORDINATE, DEFAULT_PHYSICS } from '../physics/params'
+import { clearAllLiveBallPoses, setLiveBallPose } from '../physics/livePoses'
+import { worldToScreen } from '../coords/transforms'
+import type { BallObject, SceneObject } from '../scene/objects'
 
-describe('reset / undo', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
+const rampAndBall = loadExampleScene(EXAMPLES[0]!)
+const state = () => appStore.getState()
+const balls = () => state().objects.filter((o): o is BallObject => o.kind === 'ball')
+const kinds = () => state().objects.map((o) => o.kind)
 
-  it('undo restores previous objects', () => {
-    appStore.loadRampAndBall()
-    expect(appStore.getState().objects.length).toBeGreaterThan(0)
-    appStore.resetScene()
-    expect(appStore.getState().objects).toHaveLength(0)
-    appStore.undo()
-    expect(appStore.getState().objects.length).toBe(rampAndBall.objects.length)
-  })
+function openRampAndBall() {
+  appStore.loadScene(rampAndBall, { exampleId: 'ramp-and-ball', message: 'opened' })
+}
 
-  it('reset clears scene', () => {
-    appStore.loadRampAndBall()
-    appStore.resetScene()
-    expect(appStore.getState().objects).toHaveLength(0)
-  })
-})
+/** Screen point at the center of an object in the default view. */
+function screenPointOf(object: SceneObject) {
+  if (object.kind === 'ball') return worldToScreen(object.position, state().view)
+  if (object.kind === 'platform') return worldToScreen(object.center, state().view)
+  return worldToScreen({ x: (object.start.x + object.end.x) / 2, y: (object.start.y + object.end.y) / 2 }, state().view)
+}
 
-describe('mouse hero-demo path (logic-level)', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
-
-  it('diagonal stroke → ramp, circle → ball, drop → dynamic', () => {
-    // 1. Draw diagonal → ramp
-    appStore.endStroke('mouse', cleanDiagonalLine())
-    let objects = appStore.getState().objects
-    expect(objects.some((o) => o.kind === 'ramp')).toBe(true)
-
-    // 2. Draw circle OR add ball
-    appStore.endStroke('mouse', cleanCircle())
-    objects = appStore.getState().objects
-    const balls = objects.filter((o) => o.kind === 'ball')
-    expect(balls.length).toBeGreaterThanOrEqual(1)
-    expect(balls.every((b) => !b.dynamic)).toBe(true)
-
-    // 3. Drop ball → dynamic
-    appStore.dropBall()
-    const after = appStore.getState().objects.filter((o) => o.kind === 'ball')
-    expect(after.some((b) => b.dynamic)).toBe(true)
-
-    // 4. Reset / undo available
-    appStore.resetScene()
-    expect(appStore.getState().objects).toHaveLength(0)
-    appStore.undo()
-    expect(appStore.getState().objects.length).toBeGreaterThan(0)
-  })
-
-  it('Add ball + Drop ball works without drawing circle', () => {
-    appStore.endStroke('mouse', cleanDiagonalLine())
-    appStore.addBall()
-    expect(appStore.getState().objects.some((o) => o.kind === 'ball')).toBe(true)
-    appStore.dropBall()
-    expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
-  })
-
-  it('load Ramp & Ball example then drop', () => {
-    appStore.loadRampAndBall()
-    expect(appStore.getState().sceneName).toBe('Ramp & Ball')
-    appStore.dropBall()
-    expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
-  })
-})
-
-describe('object limit flag', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
-
-  it('does not record an undo entry for an out-of-bounds drawing', () => {
-    appStore.setView({ worldHalfWidth: MAX_WORLD_COORDINATE * 2 })
-    appStore.createFromCandidate({
-      kind: 'line', quality: 1, metrics: {},
-      params: { x1: 0, y1: 100, x2: 100, y2: 200 },
-    })
-    expect(appStore.getState().objects).toHaveLength(0)
-    expect(appStore.getState().history).toHaveLength(0)
-  })
-
-  it('clears objectLimitHit after undo brings scene under the cap', () => {
-    for (let i = 0; i < MAX_OBJECTS; i++) {
-      appStore.addBall()
-    }
-    expect(appStore.getState().objects).toHaveLength(MAX_OBJECTS)
-
-    // Next add attempt flips the sticky flag
-    appStore.addBall()
-    expect(appStore.getState().objectLimitHit).toBe(true)
-    expect(appStore.getState().objects).toHaveLength(MAX_OBJECTS)
-
-    // Undo the last successful add → under the cap; flag must clear
-    appStore.undo()
-    expect(appStore.getState().objects.length).toBe(MAX_OBJECTS - 1)
-    expect(appStore.getState().objectLimitHit).toBe(false)
-  })
-})
-
-describe('dropBall history', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
-
-  it('does not push history when spawn is blocked at the object limit', () => {
-    for (let i = 0; i < MAX_OBJECTS; i++) {
-      appStore.addBall()
-    }
-    // Make every ball dynamic so dropBall cannot flip a static one
-    appStore.dropAllBalls()
-    const historyLen = appStore.getState().history.length
-
-    appStore.dropBall()
-    expect(appStore.getState().history.length).toBe(historyLen)
-    expect(appStore.getState().objects).toHaveLength(MAX_OBJECTS)
-    expect(appStore.getState().objectLimitHit).toBe(true)
-  })
-})
-
-describe('rename + freeze', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
-
-  it('setSceneName trims and updates status', () => {
-    appStore.setSceneName('  Cascade Demo  ')
-    expect(appStore.getState().sceneName).toBe('Cascade Demo')
-  })
-
-  it('freezeBalls turns dynamic balls static and is undoable', () => {
-    appStore.loadRampAndBall()
-    appStore.dropBall()
-    expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
-    appStore.freezeBalls()
-    expect(appStore.getState().objects.filter((o) => o.kind === 'ball').every((b) => !b.dynamic)).toBe(true)
-    appStore.undo()
-    expect(appStore.getState().objects.some((o) => o.kind === 'ball' && o.dynamic)).toBe(true)
-  })
-})
-
-describe('undo restores name + physics', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
-
-  it('undo after import restores previous sceneName and physics', () => {
-    appStore.setSceneName('Before')
-    appStore.setPhysics({ gravity: 5, bounce: 0.1, friction: 0.2 })
-    const before = {
-      name: appStore.getState().sceneName,
-      gravity: appStore.getState().physics.gravity,
-    }
-    appStore.replaceObjects(rampAndBall.objects, rampAndBall.name, rampAndBall.physics)
-    expect(appStore.getState().sceneName).toBe(rampAndBall.name)
-    expect(appStore.getState().physics.gravity).toBe(rampAndBall.physics.gravity)
-    appStore.undo()
-    expect(appStore.getState().sceneName).toBe(before.name)
-    expect(appStore.getState().physics.gravity).toBe(before.gravity)
-    expect(appStore.getState().objects).toHaveLength(0)
-  })
-})
-
-describe('freeze uses synced poses', () => {
-  beforeEach(() => {
-    appStore._resetForTests()
-  })
-
-  it('freezeBalls keeps an injected live pose instead of the spawn position', async () => {
-    const { setLiveBallPose, clearAllLiveBallPoses } = await import('../physics/livePoses')
-    appStore.loadRampAndBall()
-    appStore.dropBall()
-    const ball = appStore.getState().objects.find((o) => o.kind === 'ball')!
-    expect(ball.kind).toBe('ball')
-    if (ball.kind !== 'ball') return
-    const spawnY = ball.position.y
-    setLiveBallPose(ball.id, { x: 1.25, y: -1.5, z: 0 })
-    appStore.freezeBalls()
-    const frozen = appStore.getState().objects.find((o) => o.id === ball.id)!
-    expect(frozen.kind).toBe('ball')
-    if (frozen.kind !== 'ball') return
-    expect(frozen.dynamic).toBe(false)
-    expect(frozen.position.x).toBe(1.25)
-    expect(frozen.position.y).toBe(-1.5)
-    expect(frozen.position.y).not.toBe(spawnY)
-    clearAllLiveBallPoses()
-  })
-})
-
-
-it('clamps physics changes and ignores nonfinite values', () => {
+beforeEach(() => {
   appStore._resetForTests()
-  const gravity = appStore.getState().physics.gravity
-  appStore.setPhysics({ gravity: NaN, bounce: 99, friction: -1 })
-  expect(appStore.getState().physics).toMatchObject({ gravity, bounce: 1, friction: 0 })
+  clearAllLiveBallPoses()
+})
+
+describe('drawing', () => {
+  it('turns a line, circle, and rectangle into a ramp, ball, and platform', () => {
+    appStore.endStroke(cleanDiagonalLine())
+    appStore.endStroke(cleanCircle(900, 200))
+    appStore.endStroke(cleanRectangle(200, 500, 300, 60))
+    expect(kinds()).toEqual(['ramp', 'ball', 'platform'])
+    expect(balls()[0]!.dynamic).toBe(false)
+    expect(state().undoStack).toHaveLength(3)
+  })
+
+  it('treats a click as selection instead of opening the shape picker', () => {
+    openRampAndBall()
+    appStore.endStroke([{ x: 3, y: 3 }])
+    expect(state().pending).toBeNull()
+    expect(state().objects).toHaveLength(rampAndBall.objects.length)
+    expect(state().statusMessage).toMatch(/Click a shape to select it/)
+  })
+
+  it('asks what an unclear stroke should become and builds the chosen shape from it', () => {
+    appStore.endStroke(ambiguousScribble())
+    expect(state().pending).not.toBeNull()
+    expect(state().objects).toHaveLength(0)
+    appStore.resolvePending('platform')
+    expect(kinds()).toEqual(['platform'])
+    expect(state().pending).toBeNull()
+  })
+
+  it('discards an unclear stroke without recording an edit', () => {
+    appStore.endStroke(ambiguousScribble())
+    appStore.resolvePending('discard')
+    expect(state().pending).toBeNull()
+    expect(state().undoStack).toHaveLength(0)
+  })
+
+  it('does not record an edit for a drawing outside the supported coordinates', () => {
+    appStore.setView({ ...state().view, worldHalfWidth: MAX_WORLD_COORDINATE * 2 })
+    appStore.endStroke([{ x: 0, y: 100 }, { x: 50, y: 150 }, { x: 100, y: 200 }, { x: 150, y: 250 }, { x: 200, y: 300 }])
+    expect(state().objects).toHaveLength(0)
+    expect(state().undoStack).toHaveLength(0)
+  })
+
+  it('stops adding objects at the limit and allows adding again after undo', () => {
+    for (let i = 0; i < MAX_OBJECTS; i++) appStore.addBall()
+    expect(state().objects).toHaveLength(MAX_OBJECTS)
+    appStore.addBall()
+    appStore.drop()
+    appStore.endStroke(cleanDiagonalLine())
+    expect(state().objects).toHaveLength(MAX_OBJECTS)
+    expect(state().statusMessage).toMatch(/limited to 40 objects/)
+    appStore.undo()
+    appStore.undo()
+    appStore.addBall()
+    expect(state().objects).toHaveLength(MAX_OBJECTS)
+  })
+})
+
+describe('selection', () => {
+  it('selects the clicked shape and deletes it as an undoable edit', () => {
+    openRampAndBall()
+    const ramp = state().objects.find((o) => o.kind === 'ramp')!
+    appStore.endStroke([screenPointOf(ramp)])
+    expect(state().selectedId).toBe(ramp.id)
+    appStore.deleteSelected()
+    expect(state().objects.some((o) => o.id === ramp.id)).toBe(false)
+    expect(state().selectedId).toBeNull()
+    appStore.undo()
+    expect(state().objects.some((o) => o.id === ramp.id)).toBe(true)
+  })
+
+  it('selects a moving ball where Rapier reports it, not where it started', () => {
+    openRampAndBall()
+    appStore.drop()
+    const ball = balls()[0]!
+    setLiveBallPose(ball.id, { x: 4, y: -2.5, z: 0 })
+    appStore.selectAt(worldToScreen({ x: 4, y: -2.5 }, state().view))
+    expect(state().selectedId).toBe(ball.id)
+  })
+
+  it('clears the selection when clicking empty space', () => {
+    openRampAndBall()
+    appStore.endStroke([screenPointOf(balls()[0]!)])
+    expect(state().selectedId).not.toBeNull()
+    appStore.endStroke([{ x: 1, y: 1 }])
+    expect(state().selectedId).toBeNull()
+  })
+})
+
+describe('running the simulation', () => {
+  it('drops every waiting ball at once and remembers where each was released', () => {
+    appStore.loadScene(loadExampleScene(EXAMPLES.find((e) => e.id === 'bounce-test')!), { message: 'opened' })
+    const start = balls().map((b) => b.position)
+    appStore.drop()
+    expect(balls().every((b) => b.dynamic)).toBe(true)
+    expect(balls().map((b) => b.releasedFrom)).toEqual(start)
+  })
+
+  it('drops a new ball when none are waiting', () => {
+    appStore.drop()
+    expect(balls()).toHaveLength(1)
+    expect(balls()[0]!.dynamic).toBe(true)
+  })
+
+  it('restarts released balls from their release points, even after they moved', () => {
+    openRampAndBall()
+    const start = balls()[0]!.position
+    appStore.drop()
+    setLiveBallPose(balls()[0]!.id, { x: 4.4, y: -2.5, z: 0 })
+    appStore.restart()
+    expect(balls()[0]).toMatchObject({ dynamic: false, position: start })
+    expect(balls()[0]!.releasedFrom).toBeUndefined()
+    appStore.undo()
+    expect(balls()[0]).toMatchObject({ dynamic: true, position: { x: 4.4, y: -2.5 } })
+  })
+
+  it('freezes moving balls at their live positions and restarts them from the original release point', () => {
+    openRampAndBall()
+    const start = balls()[0]!.position
+    appStore.drop()
+    setLiveBallPose(balls()[0]!.id, { x: 1.25, y: -1.5, z: 0 })
+    appStore.freezeBalls()
+    expect(balls()[0]).toMatchObject({ dynamic: false, position: { x: 1.25, y: -1.5 } })
+    appStore.drop()
+    appStore.restart()
+    expect(balls()[0]!.position).toEqual(start)
+  })
+
+  it('ignores stale live poses for balls that are no longer moving', () => {
+    openRampAndBall()
+    appStore.drop()
+    const id = balls()[0]!.id
+    setLiveBallPose(id, { x: 2, y: 0, z: 0 })
+    appStore.restart()
+    expect(appStore.exportState().objects.find((o) => o.id === id)).toMatchObject({ position: balls()[0]!.position })
+  })
+
+  it('exports moving balls at their live positions', () => {
+    openRampAndBall()
+    appStore.drop()
+    setLiveBallPose(balls()[0]!.id, { x: 2, y: 0.5, z: 0 })
+    const exported = appStore.exportState().objects.find((o) => o.kind === 'ball')
+    expect(exported).toMatchObject({ position: { x: 2, y: 0.5 }, dynamic: true })
+    expect(balls()[0]!.position).not.toEqual({ x: 2, y: 0.5, z: 0 })
+  })
+})
+
+describe('undo and redo', () => {
+  it('undoes and redoes edits in order', () => {
+    appStore.endStroke(cleanDiagonalLine())
+    appStore.addBall()
+    appStore.undo()
+    expect(kinds()).toEqual(['ramp'])
+    appStore.undo()
+    expect(kinds()).toEqual([])
+    appStore.redo()
+    appStore.redo()
+    expect(kinds()).toEqual(['ramp', 'ball'])
+    appStore.redo()
+    expect(state().statusMessage).toBe('Nothing to redo.')
+  })
+
+  it('drops the redo history after a new edit', () => {
+    appStore.addBall()
+    appStore.undo()
+    appStore.endStroke(cleanDiagonalLine())
+    expect(state().redoStack).toHaveLength(0)
+  })
+
+  it('rebuilds the physics world on undo, redo, clear, and load, but not on ordinary edits', () => {
+    const revision = () => state().sceneRevision
+    let last = revision()
+    appStore.addBall()
+    appStore.drop()
+    expect(revision()).toBe(last)
+    for (const action of [() => appStore.undo(), () => appStore.redo(), () => appStore.clearScene(), openRampAndBall]) {
+      action()
+      expect(revision()).toBeGreaterThan(last)
+      last = revision()
+    }
+  })
+
+  it('restores the scene name and physics of an earlier scene', () => {
+    appStore.setSceneName('Before')
+    appStore.setPhysics({ gravity: 5 })
+    openRampAndBall()
+    expect(state()).toMatchObject({ sceneName: 'Ramp & Ball', exampleId: 'ramp-and-ball' })
+    appStore.undo()
+    expect(state().sceneName).toBe('Before')
+    expect(state().physics.gravity).toBe(5)
+    expect(state().objects).toHaveLength(0)
+  })
+
+  it('brings a cleared scene back', () => {
+    openRampAndBall()
+    appStore.clearScene()
+    expect(state()).toMatchObject({ objects: [], sceneName: 'Untitled', exampleId: null })
+    appStore.undo()
+    expect(state().objects).toHaveLength(rampAndBall.objects.length)
+  })
+})
+
+describe('settings', () => {
+  it('clamps physics changes and ignores non-finite values', () => {
+    appStore.setPhysics({ gravity: NaN, bounce: 99, friction: -1 })
+    expect(state().physics).toMatchObject({ gravity: DEFAULT_PHYSICS.gravity, bounce: 1, friction: 0 })
+  })
+
+  it('trims scene names and falls back to Untitled', () => {
+    appStore.setSceneName('  Cascade Demo  ')
+    expect(state().sceneName).toBe('Cascade Demo')
+    appStore.setSceneName('   ')
+    expect(state().sceneName).toBe('Untitled')
+  })
+
+  it('marks balls that load already moving so Restart can put them back', () => {
+    const moving = rampAndBall.objects.map((o) => (o.kind === 'ball' ? { ...o, dynamic: true } : o))
+    appStore.loadScene({ ...rampAndBall, objects: moving }, { message: 'opened' })
+    expect(balls()[0]!.releasedFrom).toEqual(balls()[0]!.position)
+  })
 })

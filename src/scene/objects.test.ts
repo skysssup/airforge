@@ -1,11 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { objectFromRecognition, createBallAt, topSurfaceY } from './objects'
+import { objectFromRecognition, createBallAt, topSurfaceY, clearBallFromColliders, hitTest, type PlatformObject, type RampObject } from './objects'
 import { recognizeStroke } from '../shapes/recognize'
-import { cleanCircle, cleanDiagonalLine, cleanRectangle } from '../fixtures/strokes'
-import { BALL_RADIUS, MAX_WORLD_COORDINATE, SPAWN_CLEARANCE } from '../physics/params'
+import { cleanCircle, cleanDiagonalLine, cleanRectangle } from '../test/strokes'
+import { BALL_RADIUS, MAX_BALL_RADIUS, MAX_WORLD_COORDINATE, MIN_BALL_RADIUS, SPAWN_CLEARANCE, ballMinY } from '../physics/params'
 import { DEFAULT_VIEW } from '../coords/transforms'
 
+const platform: PlatformObject = {
+  id: 'p1', kind: 'platform', createdAt: 0,
+  center: { x: 0, y: 0, z: 0 }, halfExtents: { x: 2, y: 0.2, z: 0.2 }, rotationZ: 0,
+}
+
 describe('object creation from recognition', () => {
+  it('creates a ramp, ball, and platform from clean strokes', () => {
+    const create = (points: { x: number; y: number }[]) => objectFromRecognition(recognizeStroke(points).primary!, DEFAULT_VIEW)
+    expect(create(cleanDiagonalLine())?.kind).toBe('ramp')
+    expect(create(cleanCircle())?.kind).toBe('ball')
+    expect(create(cleanRectangle())?.kind).toBe('platform')
+  })
+
+  it('sizes a drawn ball to the circle within the allowed radius range', () => {
+    const ball = (radiusPx: number) => objectFromRecognition(
+      { kind: 'circle', quality: 1, metrics: {}, params: { cx: 640, cy: 200, radius: radiusPx } },
+      DEFAULT_VIEW,
+    )
+    const pxPerUnit = DEFAULT_VIEW.height / (2 * DEFAULT_VIEW.worldHalfHeight)
+    expect(ball(pxPerUnit * 0.5)).toMatchObject({ kind: 'ball', radius: 0.5 })
+    expect(ball(1)).toMatchObject({ radius: MIN_BALL_RADIUS })
+    expect(ball(10_000)).toMatchObject({ radius: MAX_BALL_RADIUS })
+  })
+
   it('rejects drawn coordinates outside the import safety bounds', () => {
     const view = { ...DEFAULT_VIEW, worldHalfWidth: MAX_WORLD_COORDINATE * 2 }
     expect(objectFromRecognition({
@@ -22,89 +45,63 @@ describe('object creation from recognition', () => {
     }, { ...DEFAULT_VIEW, worldHalfWidth: 100 })).toBeNull()
   })
 
-  it('creates ramp from line', () => {
-    const rec = recognizeStroke(cleanDiagonalLine())!
-    const obj = objectFromRecognition(rec.primary!, DEFAULT_VIEW, false, [])
-    expect(obj?.kind).toBe('ramp')
-    if (obj?.kind === 'ramp') {
-      expect(obj.start.x).not.toBe(obj.end.x)
-    }
-  })
-
-  it('creates ball from circle', () => {
-    const rec = recognizeStroke(cleanCircle())!
-    const obj = objectFromRecognition(rec.primary!, DEFAULT_VIEW, false, [])
-    expect(obj?.kind).toBe('ball')
-  })
-
-  it('creates platform from rectangle', () => {
-    const rec = recognizeStroke(cleanRectangle())!
-    const obj = objectFromRecognition(rec.primary!, DEFAULT_VIEW, false, [])
+  it('keeps the tilt of a rotated rectangle', () => {
+    const obj = objectFromRecognition({
+      kind: 'rectangle', quality: 0.95, metrics: {},
+      params: { corners: [{ x: 200, y: 200 }, { x: 320, y: 240 }, { x: 300, y: 300 }, { x: 180, y: 260 }] },
+    }, DEFAULT_VIEW)
     expect(obj?.kind).toBe('platform')
+    if (obj?.kind !== 'platform') return
+    expect(Math.abs(obj.rotationZ)).toBeGreaterThan(0.15)
+    const ball = createBallAt({ x: obj.center.x, y: obj.center.y, z: 0 }, [obj])!
+    expect(ball.position.y).toBeGreaterThanOrEqual(topSurfaceY([obj], obj.center.x)! + SPAWN_CLEARANCE - 1e-6)
   })
-
-  it('never spawns ball inside platform (spawn offset)', () => {
-    const platform = {
-      id: 'p1',
-      kind: 'platform' as const,
-      createdAt: 0,
-      center: { x: 0, y: 0, z: 0 },
-      halfExtents: { x: 2, y: 0.2, z: 0.2 },
-      rotationZ: 0,
-    }
-    const ball = createBallAt({ x: 0, y: 0, z: 0 }, [platform], false)!
-    const top = topSurfaceY([platform], 0)!
-    expect(ball.position.y).toBeGreaterThanOrEqual(top + BALL_RADIUS + SPAWN_CLEARANCE - 1e-6)
-  })
-  it('preserves tilted platform rotation instead of flattening', () => {
-    // Axis-aligned AABB of a tilted rect would zero rotation; we keep edge angle.
-    const tilted = [
-      { x: 200, y: 200 },
-      { x: 320, y: 240 },
-      { x: 300, y: 300 },
-      { x: 180, y: 260 },
-    ]
-    const candidate = {
-      kind: 'rectangle' as const,
-      quality: 0.95,
-      params: { corners: tilted },
-      metrics: {},
-    }
-    const obj = objectFromRecognition(candidate as never, DEFAULT_VIEW, false, [])
-    expect(obj?.kind).toBe('platform')
-    if (obj?.kind === 'platform') {
-      expect(Math.abs(obj.rotationZ)).toBeGreaterThan(0.15)
-      const top = topSurfaceY([obj], obj.center.x)
-      expect(top).not.toBeNull()
-      const ball = createBallAt({ x: obj.center.x, y: obj.center.y, z: 0 }, [obj], false)!
-      expect(ball.position.y).toBeGreaterThanOrEqual((top as number) + SPAWN_CLEARANCE - 1e-6)
-    }
-  })
-
-
 })
 
-describe('collider clearance', () => {
-  it('lifts a ball clear of a near-vertical ramp AABB', () => {
-    const ramp = {
-      id: 'r-vert',
-      kind: 'ramp' as const,
-      createdAt: 0,
-      start: { x: 0, y: -2, z: 0 },
-      end: { x: 0.05, y: 2, z: 0 },
-      width: 0.28,
-      thickness: 0.35,
+describe('spawn clearance', () => {
+  it('never spawns a ball inside a platform', () => {
+    const ball = createBallAt({ x: 0, y: 0, z: 0 }, [platform])!
+    expect(ball.position.y).toBeGreaterThanOrEqual(topSurfaceY([platform], 0)! + BALL_RADIUS + SPAWN_CLEARANCE - 1e-6)
+  })
+
+  it('lifts a ball clear of a near-vertical ramp', () => {
+    const ramp: RampObject = {
+      id: 'r-vert', kind: 'ramp', createdAt: 0,
+      start: { x: 0, y: -2, z: 0 }, end: { x: 0.05, y: 2, z: 0 }, width: 0.28, thickness: 0.35,
     }
-    const ball = createBallAt({ x: 0, y: 0, z: 0 }, [ramp], false)!
+    const ball = createBallAt({ x: 0, y: 0, z: 0 }, [ramp])!
     const top = topSurfaceY([ramp], 0)!
-    expect(top).toBeGreaterThan(0)
+    expect(top).toBeGreaterThan(2)
     expect(ball.position.y).toBeGreaterThanOrEqual(top + BALL_RADIUS + SPAWN_CLEARANCE - 1e-6)
   })
 
-  it('lifts a ball above the ground collider top', async () => {
-    const { ballMinY } = await import('../physics/params')
-    const { clearBallFromColliders } = await import('./objects')
-    const cleared = clearBallFromColliders({ x: 0, y: -10, z: 0 }, BALL_RADIUS, [])
-    expect(cleared.y).toBeGreaterThanOrEqual(ballMinY(BALL_RADIUS) - 1e-6)
+  it('lifts a ball above the floor', () => {
+    expect(clearBallFromColliders({ x: 0, y: -10, z: 0 }, BALL_RADIUS, []).y).toBeCloseTo(ballMinY(BALL_RADIUS))
+  })
+
+  it('marks a ball dropped straight away with its release point', () => {
+    const ball = createBallAt({ x: 1, y: 2, z: 0 }, [], true)!
+    expect(ball.releasedFrom).toEqual(ball.position)
+  })
+})
+
+describe('hitTest', () => {
+  const ramp: RampObject = {
+    id: 'ramp', kind: 'ramp', createdAt: 0,
+    start: { x: -4, y: 2, z: 0 }, end: { x: 4, y: -2, z: 0 }, width: 0.28, thickness: 0.35,
+  }
+  const ball = createBallAt({ x: 0, y: 3, z: 0 })!
+
+  it('finds rotated shapes by their outline, with a small tolerance', () => {
+    expect(hitTest([ramp], { x: 2, y: -1, z: 0 }, 0)).toBe(ramp)
+    expect(hitTest([ramp], { x: 2, y: -0.6, z: 0 }, 0)).toBeNull()
+    expect(hitTest([ramp], { x: 2, y: -0.6, z: 0 }, 0.2)).toBe(ramp)
+    expect(hitTest([ramp], { x: 4.5, y: -2.25, z: 0 }, 0.2)).toBeNull()
+  })
+
+  it('prefers balls over the shapes behind them', () => {
+    const big: PlatformObject = { ...platform, center: { x: 0, y: 3, z: 0 }, halfExtents: { x: 3, y: 1, z: 0.2 } }
+    expect(hitTest([ball, big], ball.position, 0)).toBe(ball)
+    expect(hitTest([ball, big], { x: 2, y: 3, z: 0 }, 0)).toBe(big)
   })
 })
