@@ -78,7 +78,7 @@ The interface comes in a light and a dark theme. Ramps, platforms, and curves ar
 
 ## Run locally
 
-Requires Node.js 22.12 or later (CI uses Node 24).
+Requires Node.js ^22.22.2 or >=24.15.0 (see `.nvmrc`; CI uses Node 24).
 
 ```bash
 npm ci
