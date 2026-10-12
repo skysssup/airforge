@@ -145,8 +145,10 @@ test('motion marks read the moving ball and stay on after a reload', async ({ pa
   const readout = page.getByRole('region', { name: 'Motion' })
   await expect(readout).toContainText('Select a ball to read its time, speed, and height.')
   await page.keyboard.press('d')
-  await page.waitForTimeout(2000)
-  const [time, speed, height, highest] = (await readout.locator('.readings dd').allTextContents()).map(parseFloat)
+  // Simulated time follows rendered frames, so on a slow (software-GL) machine it lags the wall clock: wait for it.
+  const readings = async () => (await readout.locator('.readings dd').allTextContents()).map(parseFloat)
+  await expect.poll(async () => (await readings())[0], { timeout: 20_000 }).toBeGreaterThan(1)
+  const [time, speed, height, highest] = await readings()
   expect(time).toBeGreaterThan(1)
   expect(speed).toBeGreaterThan(0.3)
   expect(height).toBeGreaterThan(0)
