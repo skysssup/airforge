@@ -1395,3 +1395,8 @@ kbd {
     width: 80px;
   }
 }
+.motion-recording { border-top:1px solid var(--line); padding:12px; pointer-events:auto; }
+.motion-recording-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.motion-recording-actions .btn { font-size:11px; min-height:30px; }
+.motion-recording p { margin:10px 0 0; font-size:10px; }
+.motion-plot { display:block; width:100%; height:65px; margin-top:10px; }
