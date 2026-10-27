@@ -37,7 +37,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           </ul>
           <h3 className="t-label">Saving and sharing</h3>
           <ul>
-            <li>Save downloads the scene as a JSON file, and Open loads one.</li>
+              <li>Save downloads the scene as a JSON file, and Open loads one.</li>
+              <li>Turn on Motion, select a ball, and use Record motion to capture its speed and height. Stop to export CSV. Pausing adds no samples; restarting preserves the previous recording.</li>
             <li>Copy link puts the whole scene into a link. Opening the link loads the scene; nothing is uploaded.</li>
           </ul>
           <h3 className="t-label">Webcam (optional)</h3>

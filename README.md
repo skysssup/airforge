@@ -21,6 +21,12 @@ A smooth stroke that bends clearly away from a straight line, such as an arc, a 
 
 Click a shape to select it, then drag it somewhere else, turn it with `[` and `]`, or copy it with `Ctrl+D` (`⌘D` on macOS). Each of these is one step for **Undo**. A ball moved into a shape is lifted just clear of it. A released ball belongs to the physics engine, so it can be moved again only after **Freeze** or **Restart**.
 
+## Record a physics experiment
+
+Open Ramp & Ball, turn on **Motion** (`M`), and press **Drop**. Click **Record motion**, let the ball roll, then **Stop recording** and **Export CSV**. The panel plots measured height; the CSV includes simulation time in seconds, speed in grid squares per second, and current and maximum height above the floor. One grid square is one scene unit.
+
+Pausing the simulation adds no duplicate time samples. Restarting or following a different ball stops the recording and keeps the previous data available for export. A recording holds at most 3,000 samples. Measurements are observed about ten times per second while the panel is open, rather than a recording of every physics step. They describe this Rapier simulation, not a calibrated physical experiment.
+
 ## Examples
 
 Each example opens from the **Examples** menu or from its link. A strip under the top bar says what to expect and what to try next. The headless tests in [`src/examples.test.ts`](src/examples.test.ts) check every outcome listed below.

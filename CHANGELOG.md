@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Record a selected ball's speed and height from the Motion panel, see its measured height plot, and download numeric CSV. Samples use simulation time: pauses do not add rows, and a restart stops the recording while preserving its measurements. Each recording is bounded to 3,000 samples.
+- Scene links handle browsers that expose compression streams without supporting deflate-raw, and report link-generation errors without an unhandled rejection.
+
 ## 2.0.0 (2026-10-04)
 
 Curves, motion marks, scene links, and shape editing. A scene without curves is still saved as format version 1, so AirForge 1.x opens it. A scene with a curve is saved as version 2, which only 2.0 opens.
