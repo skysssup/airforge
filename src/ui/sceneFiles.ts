@@ -61,7 +61,12 @@ export async function copySceneLink(): Promise<void> {
     appStore.setStatus('This browser cannot create scene links. Use Save instead.')
     return
   }
-  const link = await sceneLink()
+  let link: string
+  try { link = await sceneLink() }
+  catch {
+    appStore.setStatus('Could not create a scene link in this browser. Use Save to download the scene instead.')
+    return
+  }
   const { sceneName } = appStore.getState()
   try {
     await navigator.clipboard.writeText(link)

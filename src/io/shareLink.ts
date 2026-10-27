@@ -13,7 +13,12 @@ export const MAX_TOKEN_LENGTH = 200_000
 export type DecodeResult = { ok: true; json: string } | { ok: false; error: string }
 
 export function canShareLinks(): boolean {
-  return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function'
+  try {
+    // Some browsers expose the constructors without supporting this format.
+    new CompressionStream('deflate-raw')
+    new DecompressionStream('deflate-raw')
+    return true
+  } catch { return false }
 }
 
 function toBase64Url(bytes: Uint8Array): string {

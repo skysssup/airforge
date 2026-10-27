@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { MAX_TOKEN_LENGTH, decodeSceneToken, encodeSceneToken, sceneTokenFromHash } from './shareLink'
+import { describe, expect, it, vi } from 'vitest'
+import { MAX_TOKEN_LENGTH, canShareLinks, decodeSceneToken, encodeSceneToken, sceneTokenFromHash } from './shareLink'
 import { MAX_JSON_BYTES } from './schema'
 import { importSceneJson } from './serialize'
 import { EXAMPLES } from '../examples'
 
 describe('scene links', () => {
+  it('detects constructors that exist but cannot handle deflate-raw', () => {
+    vi.stubGlobal('CompressionStream', class { constructor() { throw new TypeError('Unsupported format') } })
+    try { expect(canShareLinks()).toBe(false) }
+    finally { vi.unstubAllGlobals() }
+  })
   it('round-trips every example through a URL-safe token shorter than 1,000 characters', async () => {
     for (const example of EXAMPLES) {
       const token = await encodeSceneToken(example.json)
