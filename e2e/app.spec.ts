@@ -154,7 +154,7 @@ test('motion marks read the moving ball and stay on after a reload', async ({ pa
   expect(height).toBeGreaterThan(0)
   expect(highest).toBeGreaterThanOrEqual(height)
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Motion' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Motion', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('m')
   await expect(readout).toBeHidden()
 })

@@ -27,6 +27,8 @@ Open Ramp & Ball, turn on **Motion** (`M`), and press **Drop**. Click **Record m
 
 Pausing the simulation adds no duplicate time samples. Restarting or following a different ball stops the recording and keeps the previous data available for export. A recording holds at most 3,000 samples. Measurements are observed about ten times per second while the panel is open, rather than a recording of every physics step. They describe this Rapier simulation, not a calibrated physical experiment.
 
+![Recording speed and height in the Ramp and Ball example](docs/motion-recording.png)
+
 ## Examples
 
 Each example opens from the **Examples** menu or from its link. A strip under the top bar says what to expect and what to try next. The headless tests in [`src/examples.test.ts`](src/examples.test.ts) check every outcome listed below.
