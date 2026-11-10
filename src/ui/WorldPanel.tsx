@@ -18,7 +18,7 @@ interface SliderProps {
 function Slider({ id, label, value, display, min, max, step, onChange }: SliderProps) {
   return (
     <div className="field">
-      <label className="t-ui" htmlFor={id}>
+      <label htmlFor={id}>
         {label}
       </label>
       <output htmlFor={id}>{display}</output>
@@ -47,7 +47,10 @@ export function WorldPanel({ onClose }: { onClose: () => void }) {
   const platforms = objects.length - ramps - balls - curves
 
   useEffect(() => {
-    const toggle = () => document.querySelector<HTMLElement>('[aria-controls="world-panel"]')
+    // On a phone World opens from the More sheet, so focus returns to whichever opener is on screen.
+    const toggle = () =>
+      Array.from(document.querySelectorAll<HTMLElement>('[aria-controls="world-panel"], [aria-controls="more-sheet"]')).find((el) => el.offsetParent !== null) ??
+      document.querySelector<HTMLElement>('[aria-controls="world-panel"]')
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node
       if (!ref.current?.contains(target) && !toggle()?.contains(target)) onClose()
@@ -77,35 +80,35 @@ export function WorldPanel({ onClose }: { onClose: () => void }) {
       aria-label="World"
     >
       <div className="panel-head">
-        <span>World</span>
+        <h2>World</h2>
         <button type="button" className="btn square" aria-label="Close world settings" title="Close" onClick={onClose}>
           <CloseIcon />
         </button>
       </div>
       <div className="panel-body">
-        <Slider id="gravity" label="Gravity" value={physics.gravity} display={String(Number(physics.gravity.toFixed(2)))} min={GRAVITY_MIN} max={GRAVITY_MAX} step={0.1} onChange={(gravity) => appStore.setPhysics({ gravity })} />
+        <Slider id="gravity" label="Gravity" value={physics.gravity} display={String(Number(physics.gravity.toFixed(2)))} min={GRAVITY_MIN} max={GRAVITY_MAX} step={0.01} onChange={(gravity) => appStore.setPhysics({ gravity })} />
         <Slider id="bounce" label="Bounce" value={physics.bounce} display={physics.bounce.toFixed(2)} min={BOUNCE_MIN} max={BOUNCE_MAX} step={0.01} onChange={(bounce) => appStore.setPhysics({ bounce })} />
         <Slider id="friction" label="Friction" value={physics.friction} display={physics.friction.toFixed(2)} min={FRICTION_MIN} max={FRICTION_MAX} step={0.01} onChange={(friction) => appStore.setPhysics({ friction })} />
       </div>
       <dl className="counts">
         <div>
-          <dt className="t-label">{ramps === 1 ? 'Ramp' : 'Ramps'}</dt>
+          <dt>{ramps === 1 ? 'Ramp' : 'Ramps'}</dt>
           <dd>{ramps}</dd>
         </div>
         <div>
-          <dt className="t-label">{balls === 1 ? 'Ball' : 'Balls'}</dt>
+          <dt>{balls === 1 ? 'Ball' : 'Balls'}</dt>
           <dd>{balls}</dd>
         </div>
         <div>
-          <dt className="t-label">{platforms === 1 ? 'Platform' : 'Platforms'}</dt>
+          <dt>{platforms === 1 ? 'Platform' : 'Platforms'}</dt>
           <dd>{platforms}</dd>
         </div>
         <div>
-          <dt className="t-label">{curves === 1 ? 'Curve' : 'Curves'}</dt>
+          <dt>{curves === 1 ? 'Curve' : 'Curves'}</dt>
           <dd>{curves}</dd>
         </div>
         <div>
-          <dt className="t-label">Limit</dt>
+          <dt>Limit</dt>
           <dd>
             {objects.length}
             <span className="muted">/{MAX_OBJECTS}</span>

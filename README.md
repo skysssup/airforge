@@ -82,7 +82,7 @@ The interface comes in a light and a dark theme. Ramps, platforms, and curves ar
 
 **Save** downloads the scene as JSON. **Open** loads one. A file stores the scene name, the gravity, bounce, and friction settings, and every shape's position and size. A ball that is moving when you save is stored at its current position, but its velocity is not stored. A scene with a curve is saved as format version 2 (`"format": "airforge-scene", "version": 2`), which AirForge 1.x cannot open. A scene without curves is still saved as version 1, the format AirForge 1.x saves, so either version can open it. Files larger than 512 KB are refused, as are files with more than 40 objects, curves with more than 64 points, or coordinates beyond ±10,000 units, and the status line says why.
 
-**Copy link** copies a link with the whole scene file in its `#scene=` part, compressed with deflate and encoded as base64url. The scene never goes to a server, because browsers do not send that part of a link. Opening the link checks the scene exactly like opening a file, and a damaged link leaves the current scene alone. The example scenes make links of 400 to 900 characters.
+**Copy link** copies a link with the whole scene file in its `#scene=` part, compressed with deflate and encoded as base64url. The scene never goes to a server, because browsers do not send that part of a link. Opening the link checks the scene exactly like opening a file, and a damaged link leaves the current scene alone. The example scenes make links of about 400 to 950 characters.
 
 ## Run locally
 

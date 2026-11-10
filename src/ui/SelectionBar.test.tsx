@@ -28,7 +28,7 @@ it('offers rotation and a copy for a selected platform, inside the stage', async
   expect(appStore.getState().objects).toHaveLength(EXAMPLES[0] ? loadExampleScene(EXAMPLES[0]).objects.length + 1 : 0)
 })
 
-it('offers only a copy for a waiting ball, and nothing for a released one', () => {
+it('offers a copy and delete for a waiting ball, and nothing for a released one', () => {
   select('ball')
   const { rerender } = render(<SelectionBar />)
   expect(screen.getByRole('toolbar', { name: 'Selected ball' })).toBeTruthy()
@@ -36,4 +36,14 @@ it('offers only a copy for a waiting ball, and nothing for a released one', () =
   appStore.drop()
   rerender(<SelectionBar />)
   expect(screen.queryByRole('toolbar')).toBeNull()
+})
+
+it('deletes the selected shape from the bar', async () => {
+  const user = userEvent.setup()
+  select('cup-floor')
+  render(<SelectionBar />)
+  const before = appStore.getState().objects.length
+  await user.click(screen.getByRole('button', { name: 'Delete' }))
+  expect(appStore.getState().objects).toHaveLength(before - 1)
+  expect(appStore.getState().objects.find((o) => o.id === 'cup-floor')).toBeUndefined()
 })

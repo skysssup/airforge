@@ -41,7 +41,7 @@ export async function openCamera(
   if (!isSecureContext()) {
     throw new CameraError(
       'secure_context',
-      'Camera requires HTTPS (or localhost). Use mouse mode instead.',
+      'Camera requires HTTPS (or localhost). Keep drawing with touch or the mouse.',
     )
   }
   if (!isCameraSupported()) {
@@ -78,13 +78,13 @@ function mapCameraError(err: unknown): CameraError {
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
     return new CameraError(
       'permission_denied',
-      'Camera permission denied. You can keep using mouse drawing.',
+      'Camera permission denied. Keep drawing with touch or the mouse.',
     )
   }
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
     return new CameraError(
       'not_found',
-      'No webcam detected on this device. Mouse mode still works.',
+      'No webcam detected on this device. Touch and mouse drawing still work.',
     )
   }
   if (name === 'NotReadableError' || name === 'TrackStartError') {
@@ -99,15 +99,15 @@ function mapCameraError(err: unknown): CameraError {
 export function cameraErrorHint(code: CameraErrorCode): string {
   switch (code) {
     case 'permission_denied':
-      return 'Allow camera access in the browser address bar, or continue with mouse.'
+      return 'Allow camera access in the browser address bar, or keep drawing with touch or the mouse.'
     case 'not_found':
-      return 'Plug in a webcam or keep drawing with the mouse.'
+      return 'Plug in a webcam, or keep drawing with touch or the mouse.'
     case 'in_use':
       return 'Close other apps using the camera, then retry.'
     case 'secure_context':
       return 'Serve the app over HTTPS or localhost.'
     case 'not_supported':
-      return 'Switch browsers or use mouse drawing.'
+      return 'Switch browsers, or keep drawing with touch or the mouse.'
     default:
       return 'Mouse and touch drawing still work without a camera.'
   }

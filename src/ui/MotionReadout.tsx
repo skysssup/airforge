@@ -18,6 +18,7 @@ export function MotionReadout() {
   const [recordingBall, setRecordingBall] = useState<string | null>(null)
   const [samples, setSamples] = useState<MotionReading[]>([])
   const sampleCount = samples.length
+  const [details, setDetails] = useState(false)
 
   useEffect(() => {
     const update = () => {
@@ -53,48 +54,82 @@ export function MotionReadout() {
 
   if (!motion) return null
 
+  const recordButton = (
+    <button
+      type="button"
+      className="btn"
+      disabled={!ball}
+      aria-pressed={!!recordingBall}
+      aria-label={recordingBall ? 'Stop recording' : 'Record motion'}
+      onClick={() => {
+        if (recordingBall) setRecordingBall(null)
+        else if (ball) {
+          recording.current = new MotionRecording()
+          setSamples([])
+          setRecordingBall(ball.id)
+        }
+      }}
+    >
+      <span className={`dot${recordingBall ? '' : ' hollow'}`} aria-hidden="true" />
+      <span className="label">{recordingBall ? 'Stop recording' : 'Record motion'}</span>
+    </button>
+  )
+
+  // On a phone the readout is a strip (time, speed, height, record); Details opens the rest as a drawer.
   return (
-    <section className={`panel motion-readout${webcam ? ' below-webcam' : ''}`} aria-label="Motion">
+    <section className={`panel motion-readout${webcam ? ' below-webcam' : ''}${details ? ' details-open' : ''}`} aria-label="Motion">
       <div className="panel-head">
-        <span>Motion</span>
-        <span className="muted">1 u = 1 grid square</span>
+        <h2>Motion</h2>
+        <span className="muted unit-note">1 u = 1 grid square</span>
+        <button
+          type="button"
+          className="btn details-button compact-only"
+          aria-label="Details"
+          aria-expanded={details}
+          aria-controls="motion-details"
+          onClick={() => setDetails((open) => !open)}
+        >
+          <span className="label">Details</span>
+        </button>
       </div>
       {ball && reading ? (
-        <dl className="readings">
+        <dl className="readings" data-passthrough>
           <div>
-            <dt className="t-label">Time</dt>
+            <dt>Time</dt>
             <dd>{reading.seconds.toFixed(2)} s</dd>
           </div>
           <div>
-            <dt className="t-label">Speed</dt>
+            <dt>Speed</dt>
             <dd>{reading.speed.toFixed(2)} u/s</dd>
           </div>
           <div>
-            <dt className="t-label">Height</dt>
+            <dt>Height</dt>
             <dd>{reading.height.toFixed(2)} u</dd>
           </div>
-          <div>
-            <dt className="t-label">Highest</dt>
+          <div className="detail">
+            <dt>Highest</dt>
             <dd>{reading.highest.toFixed(2)} u</dd>
           </div>
         </dl>
       ) : (
-        <p className="panel-body muted">Select a ball to read its time, speed, and height.</p>
+        <p className="panel-body" data-passthrough>
+          Select a ball to read its time, speed, and height.
+        </p>
       )}
       <div className="motion-recording">
         <div className="motion-recording-actions">
-          <button type="button" className="btn" disabled={!ball} aria-pressed={!!recordingBall} onClick={() => {
-            if (recordingBall) setRecordingBall(null)
-            else if (ball) {
-              recording.current = new MotionRecording()
-              setSamples([])
-              setRecordingBall(ball.id)
-            }
-          }}>{recordingBall ? 'Stop recording' : 'Record motion'}</button>
-          <button type="button" className="btn" disabled={!sampleCount || !!recordingBall} onClick={exportCsv}>Export CSV</button>
+          {recordButton}
+          <button type="button" className="btn detail" aria-label="Export CSV" disabled={!sampleCount || !!recordingBall} onClick={exportCsv}>
+            <span className="label">Export CSV</span>
+          </button>
         </div>
-        <p className="muted">{recordingBall ? 'Recording · ' : ''}{sampleCount} samples · simulation time</p>
-        {sampleCount > 1 && <MotionPlot samples={samples} />}
+        <div className="detail" id="motion-details">
+          <p className="muted">
+            {recordingBall ? 'Recording · ' : ''}
+            {sampleCount} samples · simulation time
+          </p>
+          {sampleCount > 1 && <MotionPlot samples={samples} />}
+        </div>
       </div>
     </section>
   )
@@ -110,6 +145,6 @@ function MotionPlot({ samples }: { samples: MotionReading[] }) {
   const points = samples.map((s) => `${5 + (s.seconds - first) / span * 230},${y(s.height)}`).join(' ')
   return <svg className="motion-plot" viewBox="0 0 240 65" role="img" aria-label={`Measured height over ${(span).toFixed(2)} seconds of simulation`}>
     <line x1="5" x2="235" y1={y(0)} y2={y(0)} stroke="currentColor" opacity="0.25" />
-    <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="1.5" />
+    <polyline points={points} fill="none" stroke="var(--accent-mark)" strokeWidth="1.5" />
   </svg>
 }

@@ -19,7 +19,7 @@ own license file in `node_modules` (or its repository) is the authoritative text
 
 | Font | Files | License |
 |------|-------|---------|
-| Instrument Sans (variable, weights 400–500), Copyright 2022 The Instrument Sans Project Authors | `src/assets/fonts/instrument-sans-var.woff2` | SIL Open Font License 1.1, full text in `src/assets/fonts/OFL-InstrumentSans.txt` |
+| Instrument Sans (variable, weights 400–600), Copyright 2022 The Instrument Sans Project Authors | `src/assets/fonts/instrument-sans-var.woff2` | SIL Open Font License 1.1, full text in `src/assets/fonts/OFL-InstrumentSans.txt` |
 | Fragment Mono (regular), Copyright 2022 The Fragment-Mono Project Authors | `src/assets/fonts/fragment-mono-400.woff2` | SIL Open Font License 1.1, full text in `src/assets/fonts/OFL-FragmentMono.txt` |
 
 ## Downloaded at runtime (webcam mode only)

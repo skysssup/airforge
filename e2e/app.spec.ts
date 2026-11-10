@@ -282,19 +282,28 @@ test('every example opens from the menu and from its link', async ({ page }) => 
   await expect(status(page)).toHaveText('There is no example called “no-such-example”. Pick one from the Examples menu.')
 })
 
+/** The body background as a hex colour (tokens are OKLCH, so read it back through a canvas). */
+const bodyHex = (page: Page) =>
+  page.evaluate(() => {
+    const ctx = document.createElement('canvas').getContext('2d')!
+    ctx.fillStyle = getComputedStyle(document.body).backgroundColor
+    ctx.fillRect(0, 0, 1, 1)
+    return '#' + Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3), (v) => v.toString(16).padStart(2, '0')).join('')
+  })
+
 test('follows the system color scheme until a theme is chosen, then remembers it', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await open(page)
   const html = page.locator('html')
   await expect(html).toHaveAttribute('data-theme', 'dark')
-  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(11, 11, 12)')
+  expect(await bodyHex(page)).toBe('#1a1917')
 
   await page.getByRole('button', { name: 'Switch to light theme' }).click()
   await expect(html).toHaveAttribute('data-theme', 'light')
-  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(255, 255, 255)')
+  expect(await bodyHex(page)).toBe('#fbfaf7')
   await page.reload()
   await expect(html).toHaveAttribute('data-theme', 'light')
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', /^#fff(fff)?$/)
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#fbfaf7')
 })
 
 test('changes gravity, bounce, and friction from the World panel', async ({ page }) => {
@@ -309,12 +318,46 @@ test('changes gravity, bounce, and friction from the World panel', async ({ page
   expect(json.physics.bounce).toBe(0.2)
 })
 
+test('keeps the Moon Jump gravity of 1.62 when World is only opened', async ({ page }) => {
+  await open(page, '?example=moon-jump')
+  await page.getByRole('button', { name: 'World' }).click()
+  await expect(page.getByRole('slider', { name: 'Gravity' })).toHaveValue('1.62')
+  await expect(page.getByRole('region', { name: 'World' }).locator('output[for="gravity"]')).toHaveText('1.62')
+  await page.keyboard.press('Escape')
+  const { json } = await save(page)
+  expect(json.physics.gravity).toBe(1.62)
+})
+
 test('keeps working on a phone-sized screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await open(page, '?example=funnel')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   const { box } = await drawingArea(page)
   expect(box.height).toBeGreaterThan(300)
-  await page.getByRole('button', { name: 'Drop (12)' }).click()
+  const drop = page.getByRole('button', { name: 'Drop (12)' })
+  const dropBox = (await drop.boundingBox())!
+  expect(dropBox.width).toBeGreaterThanOrEqual(126)
+  expect(dropBox.height).toBeGreaterThanOrEqual(44)
+  await drop.click()
   await expect(status(page)).toHaveText('Dropped 12 balls.')
+})
+
+test('keeps Drop whole and reachable at 320px, with the rest in More', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await open(page, '?example=funnel')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  const drop = page.getByRole('button', { name: 'Drop (12)' })
+  const box = (await drop.boundingBox())!
+  expect(box.width).toBeGreaterThanOrEqual(104)
+  const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label'), {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  })
+  expect(hit).toBe('Drop (12)')
+  await page.locator('.bottombar').getByRole('button', { name: 'More' }).click()
+  const sheet = page.getByRole('region', { name: 'More' })
+  for (const name of ['Redo', 'Freeze', 'Motion', 'World', 'Add ball', 'Clear']) await expect(sheet.getByRole('button', { name })).toBeVisible()
+  await sheet.getByRole('button', { name: 'World' }).click()
+  await expect(page.getByRole('region', { name: 'World' })).toBeVisible()
+  await expect(page.getByRole('slider', { name: 'Gravity' })).toBeInViewport()
 })

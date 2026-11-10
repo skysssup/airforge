@@ -4,6 +4,8 @@ import { useAppState } from './hooks'
 import { EXAMPLES, openExample } from '../examples'
 import { copySceneLink, openSceneFile, saveScene } from './sceneFiles'
 import { CameraIcon, ChevronIcon, HelpIcon, LinkIcon, OpenIcon, SaveIcon, ThemeIcon } from './icons'
+import { MoreButton } from './Controls'
+import { SCENE_FILE_INPUT_ID } from './MoreSheet'
 
 export function Mark() {
   return (
@@ -28,6 +30,7 @@ function SceneNameInput() {
     <input
       className="scene-name"
       value={draft ?? sceneName}
+      title={sceneName}
       maxLength={80}
       aria-label="Scene name"
       spellCheck={false}
@@ -105,15 +108,15 @@ function ExamplesMenu() {
           }
         }}
       >
-        <span>Examples</span>
+        <span className="label">Examples</span>
         <span className="current" aria-hidden="true">
-          {current ? `${String(EXAMPLES.indexOf(current) + 1).padStart(2, '0')} ${sceneName}` : `${EXAMPLES.length} scenes`}
+          {current ? sceneName : `${EXAMPLES.length} scenes`}
         </span>
         <ChevronIcon />
       </button>
       {open && (
         <div id="examples-menu" className="menu panel" role="menu" aria-label="Examples">
-          {EXAMPLES.map((example, i) => (
+          {EXAMPLES.map((example) => (
             <button
               key={example.id}
               type="button"
@@ -127,9 +130,6 @@ function ExamplesMenu() {
                 openExample(example)
               }}
             >
-              <span className="idx" aria-hidden="true">
-                {String(i + 1).padStart(2, '0')}
-              </span>
               <span className="menu-title" id={`example-${example.id}-title`}>
                 {example.title}
               </span>
@@ -146,9 +146,11 @@ function ExamplesMenu() {
 
 interface Props {
   onOpenHelp: () => void
+  moreOpen: boolean
+  onToggleMore: () => void
 }
 
-export function TopBar({ onOpenHelp }: Props) {
+export function TopBar({ onOpenHelp, moreOpen, onToggleMore }: Props) {
   const webcamEnabled = useAppState((s) => s.webcamEnabled)
   const theme = useAppState((s) => s.theme)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -158,23 +160,26 @@ export function TopBar({ onOpenHelp }: Props) {
     <header className="topbar">
       <div className="brand">
         <Mark />
-        <span className="wordmark">AirForge</span>
-        <span className="brand-sep" aria-hidden="true" />
+        <h1 className="wordmark">AirForge</h1>
         <SceneNameInput />
       </div>
       <ExamplesMenu />
       <div className="topbar-end">
-        <button type="button" className="btn square" aria-label="Open" title="Open a scene file (JSON)" onClick={() => fileRef.current?.click()}>
+        <button type="button" className="btn wide-only" aria-label="Open" title="Open a scene file (JSON)" onClick={() => fileRef.current?.click()}>
           <OpenIcon />
+          <span className="label">Open</span>
         </button>
-        <button type="button" className="btn square" aria-label="Save" title="Download the scene as a JSON file" onClick={saveScene}>
+        <button type="button" className="btn wide-only" aria-label="Save" title="Download the scene as a JSON file" onClick={saveScene}>
           <SaveIcon />
+          <span className="label">Save</span>
         </button>
-        <button type="button" className="btn square" aria-label="Copy link" title="Copy a link that opens this scene" onClick={() => void copySceneLink()}>
+        <button type="button" className="btn wide-only" aria-label="Copy link" title="Copy a link that opens this scene" onClick={() => void copySceneLink()}>
           <LinkIcon />
+          <span className="label">Copy link</span>
         </button>
         <input
           ref={fileRef}
+          id={SCENE_FILE_INPUT_ID}
           type="file"
           accept="application/json,.json"
           className="sr-only"
@@ -186,29 +191,32 @@ export function TopBar({ onOpenHelp }: Props) {
             if (file) void openSceneFile(file)
           }}
         />
-        <span className="topbar-sep" aria-hidden="true" />
+        <span className="topbar-sep wide-only" aria-hidden="true" />
         <button
           type="button"
-          className="btn square"
+          className="btn wide-only webcam-button"
           aria-label="Webcam"
           aria-pressed={webcamEnabled}
           title={webcamEnabled ? 'Stop the webcam and draw with the mouse' : 'Draw with your index finger in front of the webcam'}
           onClick={() => appStore.setWebcamEnabled(!webcamEnabled)}
         >
           <CameraIcon />
+          <span className="label">Webcam</span>
+          <span className={`dot${webcamEnabled ? '' : ' hollow'}`} aria-hidden="true" />
         </button>
         <button
           type="button"
-          className="btn square"
+          className="btn square wide-only"
           aria-label={`Switch to ${nextTheme} theme`}
           title={`Switch to ${nextTheme} theme`}
           onClick={() => appStore.setTheme(nextTheme)}
         >
           <ThemeIcon />
         </button>
-        <button type="button" className="btn square" aria-label="Help" title="Controls and shortcuts (?)" onClick={onOpenHelp}>
+        <button type="button" className="btn square wide-only" aria-label="Help" title="Controls and shortcuts (?)" onClick={onOpenHelp}>
           <HelpIcon />
         </button>
+        <MoreButton open={moreOpen} onToggle={onToggleMore} className="more-top" />
       </div>
     </header>
   )

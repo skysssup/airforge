@@ -22,9 +22,10 @@ it('announces status messages politely', () => {
 it('shows the input mode and marks the webcam as live', () => {
   const { container } = render(<StatusLine />)
   expect(container.querySelector('.mode')!.textContent).toBe('Mouse')
+  expect(container.querySelector('.dot.hollow')).not.toBeNull()
   act(() => appStore.setWebcamEnabled(true))
   expect(container.querySelector('.mode')!.textContent).toBe('Webcam · starting')
-  expect(container.querySelector('.dot.live')).not.toBeNull()
+  expect(container.querySelector('.dot:not(.hollow)')).not.toBeNull()
 })
 
 it('reads out the pointer position in world units while it is over the sheet', () => {

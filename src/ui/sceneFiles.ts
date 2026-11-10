@@ -1,4 +1,5 @@
 import { appStore } from '../store/appStore'
+import { copy } from '../input/pointerKind'
 import { exportSceneJson, importSceneJson } from '../io/serialize'
 import { MAX_JSON_BYTES } from '../io/schema'
 import { SCENE_PARAM, canShareLinks, decodeSceneToken, encodeSceneToken, sceneTokenFromHash } from '../io/shareLink'
@@ -95,5 +96,5 @@ export async function openSceneLinkFromUrl(): Promise<void> {
   const url = new URL(window.location.href)
   url.searchParams.delete('example')
   window.history.replaceState(window.history.state, '', url)
-  appStore.loadScene(result, { message: `Opened “${result.name}” from a link. Press Drop (D) to start.` })
+  appStore.loadScene(result, { message: `Opened “${result.name}” from a link. ${copy.dropToStart()}` })
 }

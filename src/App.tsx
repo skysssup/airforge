@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SceneCanvas } from './render/SceneCanvas'
 import { TopBar } from './ui/TopBar'
-import { EditControls, RunControls, WorldButton } from './ui/Controls'
+import { EditControls, MoreButton, RunControls, WorldButton } from './ui/Controls'
+import { MoreSheet } from './ui/MoreSheet'
 import { WorldPanel } from './ui/WorldPanel'
 import { StatusLine } from './ui/StatusLine'
 import { SheetBackdrop } from './ui/SheetBackdrop'
@@ -17,15 +18,15 @@ import { WebcamPanel } from './ui/WebcamPanel'
 import { useGlobalShortcuts } from './ui/useGlobalShortcuts'
 import { useAppState } from './ui/hooks'
 import { appStore } from './store/appStore'
+import { TOKEN_COLORS } from './render/palette.generated'
 
-/** Keep the document's theme attribute and the browser's theme color in step with the store. */
+/** Keep the document's theme attribute and the browser's theme color (the sheet's paper) in step with the store. */
 function useDocumentTheme() {
   const theme = useAppState((s) => s.theme)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim()
-    if (paper) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', paper)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', TOKEN_COLORS[theme].paper)
   }, [theme])
 
   useEffect(() => {
@@ -42,7 +43,13 @@ export default function App() {
   const webcamEnabled = useAppState((s) => s.webcamEnabled)
   const [helpOpen, setHelpOpen] = useState(false)
   const [worldOpen, setWorldOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const closeWorld = useCallback(() => setWorldOpen(false), [])
+  const closeMore = useCallback(() => setMoreOpen(false), [])
+  const toggleMore = () => {
+    setWorldOpen(false)
+    setMoreOpen((open) => !open)
+  }
   const dialogOpen = helpOpen || !tutorialDismissed
 
   useDocumentTheme()
@@ -55,7 +62,7 @@ export default function App() {
   return (
     <>
       <div className="app" inert={dialogOpen} aria-hidden={dialogOpen || undefined}>
-        <TopBar onOpenHelp={() => setHelpOpen(true)} />
+        <TopBar onOpenHelp={() => setHelpOpen(true)} moreOpen={moreOpen} onToggleMore={toggleMore} />
         <ExampleNotes />
         <main className="stage">
           <SheetBackdrop />
@@ -68,13 +75,17 @@ export default function App() {
           <WebcamPanel active={webcamEnabled && !dialogOpen} onClose={() => appStore.setWebcamEnabled(false)} />
         </main>
         <footer className="bottombar">
-          <div className="bottombar-start">
+          <div className="bar-controls">
             <EditControls />
             <WorldButton open={worldOpen} onToggle={() => setWorldOpen((open) => !open)} />
-            {worldOpen && !dialogOpen && <WorldPanel onClose={closeWorld} />}
+            <RunControls />
+            <MoreButton open={moreOpen} onToggle={toggleMore} className="more-bottom" />
           </div>
-          <RunControls />
           <StatusLine />
+          {worldOpen && !dialogOpen && <WorldPanel onClose={closeWorld} />}
+          {moreOpen && !dialogOpen && (
+            <MoreSheet onClose={closeMore} onOpenWorld={() => setWorldOpen(true)} onOpenHelp={() => setHelpOpen(true)} />
+          )}
         </footer>
       </div>
 

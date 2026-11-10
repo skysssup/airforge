@@ -1,10 +1,11 @@
 import { Canvas, useThree } from '@react-three/fiber'
-import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react'
 import { NeutralToneMapping, PMREMGenerator } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { PhysicsWorld } from './PhysicsWorld'
 import { SCENE_PALETTES, type ScenePalette } from './palette'
 import { useAppState } from '../ui/hooks'
+import { sceneErrorStore } from '../ui/sceneError'
 import { appStore } from '../store/appStore'
 import { DEFAULT_VIEW } from '../coords/transforms'
 import { CAMERA_FAR, CAMERA_FOV_DEG, CAMERA_NEAR, cameraDistanceFor, viewBoundsFor } from '../coords/camera'
@@ -58,16 +59,21 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { error: Err
     return { error }
   }
 
+  componentDidCatch(error: Error) {
+    sceneErrorStore.set(error.message)
+  }
+
   render() {
     if (!this.state.error) return this.props.children
     return (
       <div className="scene-error" role="alert">
         <div className="panel">
-          <div className="panel-head">Scene unavailable</div>
+          <div className="panel-head">
+            <h2 className="scene-error-title">The 3D scene could not start</h2>
+          </div>
           <div className="panel-body">
-            <p className="scene-error-title">The 3D scene could not start.</p>
             <p>AirForge needs WebGL and WebAssembly. Try a current version of Chrome, Edge, Firefox, or Safari with hardware acceleration enabled.</p>
-            <p className="muted details">Details: {this.state.error.message}</p>
+            <p className="details">Details: {this.state.error.message}</p>
           </div>
         </div>
       </div>
@@ -84,6 +90,7 @@ export function SceneCanvas() {
   const theme = useAppState((s) => s.theme)
   const view = useAppState((s) => s.view)
   const containerRef = useRef<HTMLDivElement>(null)
+  const sceneError = useSyncExternalStore(sceneErrorStore.subscribe, sceneErrorStore.get, sceneErrorStore.get)
   const palette = SCENE_PALETTES[theme]
   const pixel = view.height > 0 ? (2 * view.worldHalfHeight) / view.height : 0.01
 
@@ -100,7 +107,7 @@ export function SceneCanvas() {
   }, [])
 
   return (
-    <div ref={containerRef} className="scene-canvas">
+    <div ref={containerRef} className={`scene-canvas${sceneError ? ' has-error' : ''}`}>
       <SceneErrorBoundary>
         <Canvas
           dpr={[1, 2]}

@@ -4,6 +4,7 @@
  */
 
 import { importSceneJson } from './io/serialize'
+import { copy } from './input/pointerKind'
 import { appStore, type LoadedScene } from './store/appStore'
 import rampAndBall from '../public/examples/ramp-and-ball.json?raw'
 import zigzag from '../public/examples/zigzag.json?raw'
@@ -107,7 +108,7 @@ export function loadExampleScene(example: Example): LoadedScene {
 export function openExample(example: Example): void {
   appStore.loadScene(loadExampleScene(example), {
     exampleId: example.id,
-    message: `Opened “${example.title}”. Press Drop (D) to start.`,
+    message: `Opened “${example.title}”. ${copy.dropToStart()}`,
   })
   setExampleParam(example.id)
 }

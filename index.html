@@ -5,26 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Sketch ramps, balls, and platforms in the browser and watch Rapier physics run them. Works with a mouse, touch, or an optional webcam." />
-    <meta name="theme-color" content="#ffffff" />
     <link rel="preload" href="/src/assets/fonts/instrument-sans-var.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/src/assets/fonts/fragment-mono-400.woff2" as="font" type="font/woff2" crossorigin />
     <title>AirForge</title>
+    <!-- sync-tokens:head -->
+    <meta name="theme-color" content="#fbfaf7" />
     <script>
       // Apply the saved or system theme before the first paint (the app keeps it in sync afterwards).
       try {
         const saved = localStorage.getItem('airforge.theme')
         const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
         document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-        if (dark) document.querySelector('meta[name="theme-color"]').content = '#0b0b0c'
+        if (dark) document.querySelector('meta[name="theme-color"]').content = '#1a1917'
       } catch {
         document.documentElement.dataset.theme = 'light'
       }
     </script>
     <style>
-      html { background: #ffffff; color: #6a6a6a; }
-      html[data-theme='dark'] { background: #0b0b0c; color: #8f8f8f; }
-      .boot { margin: 0; height: 100vh; display: grid; place-items: center; font: 11px/16px ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; text-transform: uppercase; }
+      html { background: #fbfaf7; color: #62605a; }
+      html[data-theme='dark'] { background: #1a1917; color: #bfbeb7; }
+      .boot { margin: 0; height: 100vh; display: grid; place-items: center; font: 13px/18px 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; }
     </style>
+    <!-- /sync-tokens:head -->
   </head>
   <body>
     <div id="root"><p class="boot">Loading AirForge</p></div>

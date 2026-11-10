@@ -91,7 +91,7 @@ function SolidBody({ box, physics, palette, pixel, selected }: BodyProps & { box
         <roundedBoxGeometry args={[h.x * 2, h.y * 2, h.z * 2, 4, Math.min(EDGE_RADIUS, h.x, h.y, h.z)]} />
         <meshStandardMaterial color={palette.ink} roughness={palette.roughness} metalness={0} />
       </mesh>
-      {selected && <BoxOutline halfWidth={h.x} halfHeight={h.y} z={h.z} pixel={pixel} color={palette.accent} />}
+      {selected && <BoxOutline halfWidth={h.x} halfHeight={h.y} z={h.z} pixel={pixel} color={palette.selection} />}
     </RigidBody>
   )
 }
@@ -127,7 +127,7 @@ function CurveBody({ curve, physics, palette, pixel, selected }: BodyProps & { c
           <meshStandardMaterial color={palette.ink} roughness={palette.roughness} metalness={0} />
         </mesh>
       ))}
-      {selected && <CurveOutline points={points} distance={radius + OUTLINE_GAP * pixel} width={OUTLINE_WIDTH * pixel} z={radius} color={palette.accent} />}
+      {selected && <CurveOutline points={points} distance={radius + OUTLINE_GAP * pixel} width={OUTLINE_WIDTH * pixel} z={radius} color={palette.selection} />}
     </RigidBody>
   )
 }
@@ -256,7 +256,7 @@ function BallBody({ ball, physics, palette, pixel, selected, motion, followed }:
 
   useEffect(() => () => clearLiveBallPose(ball.id), [ball.id])
   useEffect(() => () => trail?.dispose(), [trail])
-  useEffect(() => trail?.setColor(palette.accent), [trail, palette.accent])
+  useEffect(() => trail?.setColor(palette.selection), [trail, palette.selection])
 
   useFrame((_, delta) => {
     const body = bodyRef.current
@@ -268,7 +268,7 @@ function BallBody({ ball, physics, palette, pixel, selected, motion, followed }:
   })
 
   // In the plane through the ball's center, where its outline is; a ring at the front would shift with perspective.
-  const outline = selected && <Ring inner={r + OUTLINE_GAP * pixel} width={OUTLINE_WIDTH * pixel} z={0} color={palette.accent} order={10} />
+  const outline = selected && <Ring inner={r + OUTLINE_GAP * pixel} width={OUTLINE_WIDTH * pixel} z={0} color={palette.selection} order={10} />
 
   return (
     <>
@@ -317,7 +317,7 @@ function BallBody({ ball, physics, palette, pixel, selected, motion, followed }:
           {motion && (
             <instancedMesh ref={dotsRef} args={[undefined, undefined, MAX_STROBE_DOTS]} count={0} renderOrder={1} frustumCulled={false}>
               <circleGeometry args={[1, 16]} />
-              <meshBasicMaterial color={palette.accent} transparent opacity={0.75} depthWrite={false} toneMapped={false} />
+              <meshBasicMaterial color={palette.selection} transparent opacity={0.75} depthWrite={false} toneMapped={false} />
             </instancedMesh>
           )}
         </>
@@ -375,14 +375,14 @@ function WaitingBall({ radius, pixel, palette }: { radius: number; pixel: number
         <circleGeometry args={[radius, 96]} />
         <meshBasicMaterial color={palette.waitingFill} toneMapped={false} />
       </mesh>
-      <Ring inner={radius - line} width={line} z={0.002} color={palette.accent} />
+      <Ring inner={radius - line} width={line} z={0.002} color={palette.selection} />
       <mesh position={[0, 0, 0.002]}>
         <planeGeometry args={[mark, line]} />
-        <meshBasicMaterial color={palette.accent} toneMapped={false} />
+        <meshBasicMaterial color={palette.selection} toneMapped={false} />
       </mesh>
       <mesh position={[0, 0, 0.002]}>
         <planeGeometry args={[line, mark]} />
-        <meshBasicMaterial color={palette.accent} toneMapped={false} />
+        <meshBasicMaterial color={palette.selection} toneMapped={false} />
       </mesh>
     </group>
   )

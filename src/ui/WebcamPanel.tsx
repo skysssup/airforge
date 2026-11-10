@@ -160,11 +160,19 @@ export function WebcamPanel({ active, onClose }: Props) {
   return (
     <>
       {/* The mirrored camera image fills the sheet faintly, so the fingertip lines up with what it draws. */}
-      <video ref={videoRef} playsInline muted className="webcam-video" aria-hidden="true" />
+      {/* The feed is desaturated inline: a minified grayscale(1) in the CSS would read as grayscale(). */}
+      <video
+        ref={videoRef}
+        playsInline
+        muted
+        className="webcam-video"
+        style={{ filter: 'grayscale(1)' }}
+        aria-hidden="true"
+      />
       <div ref={cursorRef} className="fingertip" data-gesture="none" aria-hidden="true" />
       <aside className="panel webcam" aria-label="Webcam">
-        <span className={`dot${ready ? ' live' : ''}`} aria-hidden="true" />
-        <span className="t-ui">{ready ? 'Hand tracking on' : 'Loading the hand tracker'}</span>
+        <span className={`dot${ready ? '' : ' hollow'}`} aria-hidden="true" />
+        <span className="webcam-state">{ready ? 'Hand tracking on' : 'Loading the hand tracker'}</span>
         <button type="button" className="btn" onClick={onClose}>
           Use mouse
         </button>

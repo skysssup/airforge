@@ -1,4 +1,5 @@
 import type { Vec2 } from '../events/types'
+import { coarsePointer, copy } from '../input/pointerKind'
 import { cloneObjects, createBallAt, hitTest, liftClearOfShapes, objectFromRecognition, type SceneObject } from '../scene/objects'
 import { copyOf, snapMove, transformObject } from '../scene/transform'
 import type { PhysicsParams } from '../physics/params'
@@ -126,8 +127,8 @@ function createInitialState(): AppState {
     theme: loadTheme(),
     motion: loadMotion(),
     webcamEnabled: false,
-    gestureLabel: 'Mouse',
-    statusMessage: 'Drag on the sheet to draw a ramp, ball, or platform, or open an example.',
+    gestureLabel: copy.mode(),
+    statusMessage: 'Drag on the sheet to draw a ramp, ball, platform, or curve, or open an example.',
   }
 }
 
@@ -248,6 +249,11 @@ function settled(object: SceneObject): SceneObject {
 }
 
 function selectionHint(object: SceneObject): string {
+  if (coarsePointer()) {
+    if (!isMovable(object)) return 'Selected ball. Tap Freeze or Restart to move it.'
+    if (object.kind === 'ball') return 'Selected ball. Drag to move. Use the bar to copy or delete.'
+    return `Selected ${object.kind}. Drag to move. Use the bar to rotate, copy or delete.`
+  }
   if (!isMovable(object)) return 'Selected ball. Freeze or Restart to move it; Delete removes it.'
   if (object.kind === 'ball') return 'Selected ball. Drag to move it; arrow keys nudge, Delete removes it.'
   return `Selected ${object.kind}. Drag to move it, [ and ] rotate it, Delete removes it.`
@@ -330,7 +336,7 @@ export const appStore = {
     if (!hit) {
       setState({
         selectedId: null,
-        statusMessage: 'Drag to draw. Click a shape to select it.',
+        statusMessage: `Drag to draw. ${copy.selectVerb()} a shape to select it.`,
       })
       return
     }
@@ -418,7 +424,7 @@ export const appStore = {
   deleteSelected(): void {
     const target = state.objects.find((o) => o.id === state.selectedId)
     if (!target) {
-      setState({ selectedId: null, statusMessage: 'Click a shape to select it, then press Delete.' })
+      setState({ selectedId: null, statusMessage: coarsePointer() ? 'Tap a shape to select it, then use Delete on the bar beside it.' : 'Click a shape to select it, then press Delete.' })
       return
     }
     commit({
@@ -429,7 +435,7 @@ export const appStore = {
   },
 
   addBall(): void {
-    addObject(createBallAt(SPAWN_POINT, state.objects), 'Added a ball. Press Drop to release it.')
+    addObject(createBallAt(SPAWN_POINT, state.objects), `Added a ball. ${copy.dropVerb()} Drop to release it.`)
   },
 
   /** Release every waiting ball, or drop a new one when none are waiting. */
@@ -451,7 +457,7 @@ export const appStore = {
   restart(): void {
     const released = state.objects.filter((o) => o.kind === 'ball' && o.releasedFrom)
     if (released.length === 0) {
-      setState({ statusMessage: 'Nothing to restart. Press Drop first.' })
+      setState({ statusMessage: `Nothing to restart. ${copy.dropVerb()} Drop first.` })
       return
     }
     commit({
@@ -460,7 +466,7 @@ export const appStore = {
         const { releasedFrom, ...ball } = o
         return { ...ball, position: releasedFrom, dynamic: false }
       }),
-      statusMessage: `Restarted ${count(released.length, 'ball')}. Press Drop to run again.`,
+      statusMessage: `Restarted ${count(released.length, 'ball')}. ${copy.dropVerb()} Drop to run again.`,
     })
   },
 
@@ -606,8 +612,8 @@ export const appStore = {
   setWebcamEnabled(on: boolean): void {
     setState({
       webcamEnabled: on,
-      gestureLabel: on ? 'Webcam · starting' : 'Mouse',
-      statusMessage: on ? 'Starting the webcam…' : 'Mouse drawing.',
+      gestureLabel: on ? 'Webcam · starting' : copy.mode(),
+      statusMessage: on ? 'Starting the webcam…' : copy.modeMessage(),
     })
   },
 

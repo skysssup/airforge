@@ -48,3 +48,29 @@ export function useMouseDrawing(enabled: boolean) {
     [enabled],
   )
 }
+
+const noMatch = () => false
+const noSubscribe = () => () => {}
+
+/** Whether a media query matches, kept in sync; false where matchMedia is missing (tests, old engines). */
+export function useMediaQuery(query: string): boolean {
+  const supported = typeof matchMedia === 'function'
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const list = matchMedia(query)
+      list.addEventListener('change', listener)
+      return () => list.removeEventListener('change', listener)
+    },
+    [query],
+  )
+  const get = useCallback(() => matchMedia(query).matches, [query])
+  return useSyncExternalStore(supported ? subscribe : noSubscribe, supported ? get : noMatch, noMatch)
+}
+
+/** The phone layout (SPEC-v3 §9): one-row top bar, More sheet, bottom-sheet panels, 44px targets. */
+export const COMPACT_QUERY = '(max-width: 640px)'
+export const useCompact = () => useMediaQuery(COMPACT_QUERY)
+/** Below 360px Redo moves into More so Drop keeps its width. */
+export const useNarrow = () => useMediaQuery('(max-width: 359px)')
+/** A touch screen without a fine pointer: Help and the Welcome lead with touch wording. */
+export const useCoarsePointer = () => useMediaQuery('(pointer: coarse)')

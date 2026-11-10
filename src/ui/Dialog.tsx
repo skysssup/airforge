@@ -11,7 +11,7 @@ export function Dialog({ labelledBy, className = '', children }: {
   useLayoutEffect(() => {
     const dialog = ref.current!
     const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      'button:not(:disabled), summary, a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
     ))
     const focusFirst = () => (controls()[0] ?? dialog).focus()
     function onTab(event: KeyboardEvent) {
@@ -39,8 +39,10 @@ export function Dialog({ labelledBy, className = '', children }: {
   }, [])
 
   return (
-    <div ref={ref} className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>
-      <div className={`modal ${className}`}>{children}</div>
+    <div className="modal-backdrop">
+      <div ref={ref} className={`modal ${className}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>
+        {children}
+      </div>
     </div>
   )
 }

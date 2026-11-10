@@ -27,7 +27,7 @@ function Harness({ dialogOpen = false }: { dialogOpen?: boolean }) {
   useGlobalShortcuts({ dialogOpen, onToggleHelp, onEscape })
   return (
     <>
-      <TopBar onOpenHelp={() => {}} />
+      <TopBar onOpenHelp={() => {}} moreOpen={false} onToggleMore={() => {}} />
       <EditControls />
       <RunControls />
     </>

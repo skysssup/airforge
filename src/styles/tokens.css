@@ -1,0 +1,114 @@
+/* AirForge "Cadmium" tokens (SPEC-v3 §3–§6). The one colour source for the app.
+   Graphite ink and cartridge paper, one cadmium yellow for the things that move (and the Drop that moves them).
+   scripts/sync-tokens.mjs reads this file before every build and writes src/render/palette.generated.ts (the
+   WebGL scene) and the boot colours in index.html, so edit colours here and nowhere else.
+   Every colour is opaque except --shadow, --veil and --shadow-overlay (one job each). */
+
+:root {
+  color-scheme: light;
+  --paper: oklch(0.985 0.004 95); /* #fbfaf7 the drawing sheet (cartridge paper): the brightest surface in light, mid in dark */
+  --chrome: oklch(0.955 0.005 95); /* #f1f0ec NEW top bar, bottom bar, notes strip: the steel frame around the sheet */
+  --raised: oklch(0.995 0.002 95); /* #fefdfc NEW menus, dialogs, panels that float over the sheet */
+  --wash: oklch(0.925 0.007 95); /* #e7e6e1 hover fill; current menu row (was 4% ink alpha) */
+  --line: oklch(0.885 0.007 95); /* #dad9d4 hairline inside panels, decorative only (was 10% ink alpha) */
+  --line-strong: oklch(0.8 0.008 95); /* #bfbeb8 group separators, list rules (was 22% ink alpha) */
+  --line-control: oklch(0.56 0.01 95); /* #76746e NEW >= 3:1 boundary: buttons, fields, slider track */
+  --ink: oklch(0.22 0.008 95); /* #1c1b16 graphite: text, ramps, platforms, the frame rules */
+  --ink-2: oklch(0.4 0.01 95); /* #494842 NEW secondary text 13–14px (descriptions, summaries, lede) */
+  --muted: oklch(0.49 0.01 95); /* #62605a 12px meta only (units, dt labels, coords, kbd hints) */
+  --grid: oklch(0.94 0.005 95); /* #ecebe7 sheet minor grid */
+  --grid-major: oklch(0.895 0.007 95); /* #dedcd7 sheet major grid */
+  --hatch: oklch(0.8 0.008 95); /* #bfbeb8 sheet margin hatching */
+  --accent: oklch(0.86 0.17 95); /* #f4ce23 cadmium: Drop fill, balls, live fingertip — "what moves". Never text. */
+  --accent-hover: oklch(0.895 0.145 98); /* #f6dd61 NEW Drop hover (lighter so the graphite label keeps Lc >= 75) */
+  --accent-edge: oklch(0.22 0.008 95); /* #1c1b16 NEW Drop frame: graphite in light, the fill itself in dark */
+  --on-accent: oklch(0.22 0.008 95); /* #1c1b16 graphite label on cadmium */
+  --accent-mark: oklch(0.6 0.115 88); /* #9d7b19 NEW cadmium as a thin mark: live stroke, selection outline, trail, plot line (brass in light) */
+  --focus: oklch(0.22 0.008 95); /* #1c1b16 NEW focus ring: graphite in light, cadmium in dark */
+  --inverse: oklch(0.22 0.008 95); /* #1c1b16 NEW pressed toggles (Pause, Freeze, Motion, Webcam, World open): graphite fill */
+  --on-inverse: oklch(0.985 0.004 95); /* #fbfaf7 NEW label on --inverse */
+  --bad: oklch(0.47 0.165 27); /* #a32321 NEW error text (status line, scene error, camera errors) */
+  --bad-mark: oklch(0.5 0.19 27); /* #b7191c NEW recording dot, error rule */
+  --bad-wash: oklch(0.962 0.018 27); /* #ffeeec NEW scene-error head, error row */
+  --shadow: oklch(0.22 0.008 95 / 0.14); /* scene shadow under shapes (sheet SVG only) */
+  --veil: oklch(0.985 0.004 95 / 0.86); /* tracing-paper veil behind dialogs (no blur) */
+  --shadow-overlay: 0 1px 0 oklch(0.22 0.008 95 / 0.06), 0 12px 28px -14px oklch(0.22 0.008 95 / 0.32); /* NEW only on §7 overlays */
+  --waiting: oklch(0.955 0.06 98); /* scene: fill of a ball waiting for Drop (mirror in src/render/palette.ts waitingFill) */
+
+  /* type (§5): six sizes, 12px floor; Instrument Sans 400/500/600 (re-subset the variable font to 400–600), Fragment Mono for numbers and keys only */
+  --sans: 'Instrument Sans', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Fragment Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --fs-12: 12px; --lh-12: 16px; /* meta, kbd, units, mono numerals in rows */
+  --fs-13: 13px; --lh-13: 18px; /* control labels (buttons, menu rows, panel heads) */
+  --fs-14: 14px; --lh-14: 20px; /* body: notes, dialogs, status message, help */
+  --fs-16: 16px; --lh-16: 22px; /* wordmark, panel numbers (counts), dialog section heads */
+  --fs-20: 20px; --lh-20: 26px; /* dialog titles at <= 390, empty-sheet headline */
+  --fs-28: 28px; --lh-28: 32px; /* tutorial title at >= 860 */
+  --fw-regular: 400; --fw-medium: 500; --fw-strong: 600;
+
+  /* space (§6.1) */
+  --sp-0: 0; --sp-0-5: 2px; --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+  /* radius (§6.2): the drafting sheet is square; round only for dots, the fingertip and balls */
+  --r-0: 0; --r-round: 50%;
+  /* size */
+  --bar-h: 48px; --bar-h-compact: 56px; /* bottom bar at <= 520 holds 44px targets + 6px padding */
+  --target: 44px; /* touch target at <= 520 */
+  --gap: 12px;
+  /* motion (§6.4): nothing infinite, UI <= 160ms, the empty-sheet demo <= 400ms per stroke, once */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-1: 120ms; --dur-2: 160ms; --dur-demo: 400ms;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: oklch(0.215 0.005 95); /* #1a1917 the drawing sheet (cartridge paper): the brightest surface in light, mid in dark */
+  --chrome: oklch(0.185 0.005 95); /* #131310 NEW top bar, bottom bar, notes strip: the steel frame around the sheet */
+  --raised: oklch(0.25 0.006 95); /* #22221e NEW menus, dialogs, panels that float over the sheet */
+  --wash: oklch(0.285 0.007 95); /* #2b2a26 hover fill; current menu row (was 4% ink alpha) */
+  --line: oklch(0.3 0.007 95); /* #2f2e2a hairline inside panels, decorative only (was 10% ink alpha) */
+  --line-strong: oklch(0.38 0.008 95); /* #44423e group separators, list rules (was 22% ink alpha) */
+  --line-control: oklch(0.62 0.01 95); /* #888680 NEW >= 3:1 boundary: buttons, fields, slider track */
+  --ink: oklch(0.945 0.005 95); /* #eeede9 graphite: text, ramps, platforms, the frame rules */
+  --ink-2: oklch(0.88 0.008 95); /* #d9d7d2 NEW secondary text 13–14px (descriptions, summaries, lede) */
+  --muted: oklch(0.8 0.009 95); /* #bfbeb7 12px meta only (units, dt labels, coords, kbd hints) */
+  --grid: oklch(0.25 0.005 95); /* #22221f sheet minor grid */
+  --grid-major: oklch(0.29 0.006 95); /* #2c2b28 sheet major grid */
+  --hatch: oklch(0.36 0.007 95); /* #3e3d39 sheet margin hatching */
+  --accent: oklch(0.86 0.17 95); /* #f4ce23 cadmium: Drop fill, balls, live fingertip — "what moves". Never text. */
+  --accent-hover: oklch(0.895 0.145 98); /* #f6dd61 NEW Drop hover (lighter so the graphite label keeps Lc >= 75) */
+  --accent-edge: oklch(0.86 0.17 95); /* #f4ce23 NEW Drop frame: graphite in light, the fill itself in dark */
+  --on-accent: oklch(0.2 0.008 95); /* #171612 graphite label on cadmium */
+  --accent-mark: oklch(0.86 0.17 95); /* #f4ce23 NEW cadmium as a thin mark: live stroke, selection outline, trail, plot line (brass in light) */
+  --focus: oklch(0.86 0.17 95); /* #f4ce23 NEW focus ring: graphite in light, cadmium in dark */
+  --inverse: oklch(0.945 0.005 95); /* #eeede9 NEW pressed toggles (Pause, Freeze, Motion, Webcam, World open): graphite fill */
+  --on-inverse: oklch(0.2 0.008 95); /* #171612 NEW label on --inverse */
+  --bad: oklch(0.875 0.06 27); /* #fbc8c1 NEW error text (status line, scene error, camera errors) */
+  --bad-mark: oklch(0.68 0.18 27); /* #f36358 NEW recording dot, error rule */
+  --bad-wash: oklch(0.255 0.035 27); /* #321c1a NEW scene-error head, error row */
+  --shadow: oklch(0.1 0.004 95 / 0.5); /* scene shadow under shapes (sheet SVG only) */
+  --veil: oklch(0.17 0.004 95 / 0.86); /* tracing-paper veil behind dialogs (no blur) */
+  --shadow-overlay: 0 0 0 1px oklch(0.1 0.004 95 / 0.6), 0 16px 32px -12px oklch(0.08 0.004 95 / 0.7);
+  --waiting: oklch(0.32 0.06 95);
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --ink-2: oklch(0.3 0.01 95); /* #2f2e28 */
+    --muted: oklch(0.36 0.01 95); /* #3f3d37 */
+    --line: oklch(0.7 0.008 95); /* #a09e99 */
+    --line-strong: oklch(0.56 0.01 95); /* #76746e */
+    --line-control: oklch(0.4 0.01 95); /* #494842 */
+    --accent-mark: oklch(0.22 0.008 95); /* #1c1b16 */
+  }
+  :root[data-theme='dark'] {
+    --ink-2: oklch(0.93 0.006 95); /* #e9e8e3 */
+    --muted: oklch(0.88 0.007 95); /* #d9d7d2 */
+    --line: oklch(0.5 0.008 95); /* #64635e */
+    --line-strong: oklch(0.62 0.01 95); /* #888680 */
+    --line-control: oklch(0.78 0.01 95); /* #b9b7b0 */
+  }
+}
+
+@media (forced-colors: active) {
+  :root { --focus: Highlight; --accent-edge: ButtonText; --line-control: ButtonText; }
+}

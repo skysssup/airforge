@@ -25,7 +25,7 @@ afterEach(() => {
 function renderControls() {
   return render(
     <>
-      <TopBar onOpenHelp={() => {}} />
+      <TopBar onOpenHelp={() => {}} moreOpen={false} onToggleMore={() => {}} />
       <EditControls />
       <RunControls />
       <WorldPanel onClose={() => {}} />
@@ -44,6 +44,18 @@ it('represents and edits the complete supported gravity range', () => {
   expect(appStore.getState().physics.gravity).toBe(GRAVITY_MAX)
   fireEvent.change(slider, { target: { value: String(GRAVITY_MIN) } })
   expect(appStore.getState().physics.gravity).toBe(GRAVITY_MIN)
+})
+
+it('shows and keeps a gravity of 1.62 or 9.81 exactly (step 0.01)', () => {
+  appStore.loadScene({ name: 'Moon', objects: [], physics: { ...DEFAULT_PHYSICS, gravity: 1.62 } }, { message: 'opened' })
+  renderControls()
+  const slider = screen.getByRole<HTMLInputElement>('slider', { name: 'Gravity' })
+  expect(slider.step).toBe('0.01')
+  expect(slider.value).toBe('1.62')
+  expect(appStore.getState().physics.gravity).toBe(1.62)
+  fireEvent.change(slider, { target: { value: '9.81' } })
+  expect(appStore.getState().physics.gravity).toBe(9.81)
+  expect(slider.value).toBe('9.81')
 })
 
 it('opens an example from the menu and records it in the address bar', async () => {
@@ -104,7 +116,7 @@ it('closes the examples menu on an outside click', async () => {
 it('enables actions only when they can do something', async () => {
   const user = userEvent.setup()
   renderControls()
-  for (const name of ['Restart', 'Freeze', 'Undo', 'Redo', 'Delete', 'Clear']) expect(button(name).disabled, name).toBe(true)
+  for (const name of ['Restart', 'Freeze', 'Undo', 'Redo', 'Clear']) expect(button(name).disabled, name).toBe(true)
   await user.click(button('Add ball'))
   expect(button('Undo').disabled).toBe(false)
   expect(button('Clear').disabled).toBe(false)
